@@ -173,6 +173,7 @@ import static org.apache.hadoop.ozone.OzoneConsts.OZONE_MAXIMUM_ACCESS_ID_LENGTH
 import static org.apache.hadoop.ozone.security.acl.IAccessAuthorizer.ACLType.READ;
 import static org.apache.hadoop.ozone.security.acl.IAccessAuthorizer.ACLType.WRITE;
 
+import org.apache.hadoop.util.Time;
 import org.apache.ratis.protocol.ClientId;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -415,6 +416,7 @@ public class RpcClient implements ClientProtocol {
   @Override
   public void createVolume(String volumeName, VolumeArgs volArgs)
       throws IOException {
+    long start = Time.monotonicNow();
     verifyVolumeName(volumeName);
     Preconditions.checkNotNull(volArgs);
     verifyCountsQuota(volArgs.getQuotaInNamespace());
@@ -462,7 +464,13 @@ public class RpcClient implements ClientProtocol {
               + "and space quota set to {} bytes, counts quota set" +
               " to {}", volumeName, owner, quotaInBytes, quotaInNamespace);
     }
+    long elapsed = Time.monotonicNow() - start;
+    LOG.error("Time taken in verifying create volume at client: {}", elapsed);
+    start = Time.monotonicNow();
     ozoneManagerClient.createVolume(builder.build());
+    elapsed = Time.monotonicNow() - start;
+    LOG.error("Time taken in returning create volume API at client: {}",
+        elapsed);
   }
 
   @Override

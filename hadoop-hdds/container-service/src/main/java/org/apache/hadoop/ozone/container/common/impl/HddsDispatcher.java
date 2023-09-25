@@ -467,10 +467,13 @@ public class HddsDispatcher implements ContainerDispatcher, Auditor {
 
   private void validateToken(
       ContainerCommandRequestProto msg) throws IOException {
+    long start = Time.monotonicNow();
     tokenVerifier.verify(
         msg, UserGroupInformation.getCurrentUser().getShortUserName(),
         msg.getEncodedToken()
     );
+    long elapsed = Time.monotonicNow() - start;
+    LOG.error("Time taken in verifying token by datanode: {}", elapsed);
   }
 
   /**

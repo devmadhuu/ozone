@@ -70,7 +70,7 @@ public class OMVolumeCreateRequest extends OMVolumeRequest {
 
   @Override
   public OMRequest preExecute(OzoneManager ozoneManager) throws IOException {
-
+    long start = Time.monotonicNow();
     VolumeInfo volumeInfo  =
         getOmRequest().getCreateVolumeRequest().getVolumeInfo();
     // Verify resource name
@@ -85,17 +85,20 @@ public class OMVolumeCreateRequest extends OMVolumeRequest {
             .setModificationTime(initialTime)
             .build();
 
-    return getOmRequest().toBuilder().setCreateVolumeRequest(
-        CreateVolumeRequest.newBuilder().setVolumeInfo(updatedVolumeInfo))
+    OMRequest request = getOmRequest().toBuilder().setCreateVolumeRequest(
+            CreateVolumeRequest.newBuilder().setVolumeInfo(updatedVolumeInfo))
         .setUserInfo(getUserInfo())
         .build();
+    long elapsed = Time.monotonicNow() - start;
+    LOG.error("Time taken in preExecute of volume create: {}", elapsed);
+    return request;
   }
 
   @Override
   public OMClientResponse validateAndUpdateCache(OzoneManager ozoneManager,
       long transactionLogIndex,
       OzoneManagerDoubleBufferHelper ozoneManagerDoubleBufferHelper) {
-
+    long startCall = Time.monotonicNow();
     CreateVolumeRequest createVolumeRequest =
         getOmRequest().getCreateVolumeRequest();
     Preconditions.checkNotNull(createVolumeRequest);
@@ -134,9 +137,12 @@ public class OMVolumeCreateRequest extends OMVolumeRequest {
 
       // check acl
       if (ozoneManager.getAclsEnabled()) {
+        long start = Time.monotonicNow();
         checkAcls(ozoneManager, OzoneObj.ResourceType.VOLUME,
             OzoneObj.StoreType.OZONE, IAccessAuthorizer.ACLType.CREATE, volume,
             null, null);
+        long elapsed = Time.monotonicNow() - start;
+        LOG.error("Time taken in checking ACLs: {}", elapsed);
       }
 
       // acquire lock.
@@ -166,6 +172,9 @@ public class OMVolumeCreateRequest extends OMVolumeRequest {
         omClientResponse = new OMVolumeCreateResponse(omResponse.build(),
             omVolumeArgs, volumeList);
         LOG.debug("volume:{} successfully created", omVolumeArgs.getVolume());
+        long elapsed = Time.monotonicNow() - startCall;
+        LOG.error("Time taken in validateAndUpdateCache of create volume: {}",
+            elapsed);
       }
 
     } catch (IOException ex) {

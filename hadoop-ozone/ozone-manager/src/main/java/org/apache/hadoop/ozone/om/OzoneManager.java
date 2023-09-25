@@ -2336,6 +2336,7 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
   @Override
   public Token<OzoneTokenIdentifier> getDelegationToken(Text renewer)
       throws OMException {
+    long start = Time.monotonicNow();
     try {
       if (!isAllowedDelegationTokenOp()) {
         throw new OMException("Delegation Token can be issued only with "
@@ -2355,7 +2356,11 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
         realUser = new Text(ugi.getRealUser().getUserName());
       }
 
-      return delegationTokenMgr.createToken(owner, renewer, realUser);
+      Token<OzoneTokenIdentifier> token =
+          delegationTokenMgr.createToken(owner, renewer, realUser);
+      long elapsed = Time.monotonicNow() - start;
+      LOG.error("Time taken in creating delegation token by OM: {}", elapsed);
+      return token;
     } catch (OMException oex) {
       throw oex;
     } catch (IOException ex) {
@@ -2375,7 +2380,7 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
   public long renewDelegationToken(Token<OzoneTokenIdentifier> token)
       throws OMException {
     long expiryTime;
-
+    long start = Time.monotonicNow();
     try {
 
       if (!isAllowedDelegationTokenOp()) {
@@ -2385,7 +2390,8 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
       }
       String renewer = getRemoteUser().getShortUserName();
       expiryTime = delegationTokenMgr.renewToken(token, renewer);
-
+      long elapsed = Time.monotonicNow() - start;
+      LOG.error("Time taken in renewing delegation token by om: {}", elapsed);
     } catch (OMException oex) {
       throw oex;
     } catch (IOException ex) {
@@ -2440,12 +2446,16 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
    */
   private boolean hasAcls(String userName, ResourceType resType,
       StoreType store, ACLType acl, String vol, String bucket, String key) {
+    long start = Time.monotonicNow();
     try {
-      return checkAcls(resType, store, acl, vol, bucket, key,
+      boolean checkAcls = checkAcls(resType, store, acl, vol, bucket, key,
           UserGroupInformation.createRemoteUser(userName),
           ProtobufRpcEngine.Server.getRemoteIp(),
           ProtobufRpcEngine.Server.getRemoteIp().getHostName(),
           false, getVolumeOwner(vol, acl, resType));
+      long elapsed = Time.monotonicNow() - start;
+      LOG.error("Time taken in hasAcls by om: {}", elapsed);
+      return checkAcls;
     } catch (OMException ex) {
       // Should not trigger exception here at all
       return false;
@@ -3001,6 +3011,7 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
 
   @Override
   public List<ServiceInfo> getServiceList() throws IOException {
+    long start = Time.monotonicNow();
     // When we implement multi-home this call has to be handled properly.
     List<ServiceInfo> services = new ArrayList<>();
     ServiceInfo.Builder omServiceInfoBuilder = ServiceInfo.newBuilder()
@@ -3092,6 +3103,8 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
     AUDIT.logReadSuccess(
         buildAuditMessageForSuccess(OMAction.GET_SERVICE_LIST,
             new LinkedHashMap<>()));
+    long elapsed = Time.monotonicNow() - start;
+    LOG.error("Time taken by getServiceList: {}", elapsed);
     return services;
   }
 

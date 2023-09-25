@@ -65,6 +65,7 @@ import org.apache.hadoop.ozone.om.request.file.OMFileRequest;
 import org.apache.hadoop.ozone.protocolPB.OMPBHelper;
 import org.apache.hadoop.ozone.security.acl.IAccessAuthorizer;
 import org.apache.hadoop.ozone.security.acl.OzoneObj;
+import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -153,9 +154,12 @@ public abstract class OMKeyRequest extends OMClientRequest {
     String remoteUser = getRemoteUser().getShortUserName();
     List<AllocatedBlock> allocatedBlocks;
     try {
+      long start = Time.monotonicNow();
       allocatedBlocks = scmClient.getBlockClient()
           .allocateBlock(scmBlockSize, numBlocks, replicationConfig, omID,
               excludeList);
+      long elapsed = Time.monotonicNow() - start;
+      LOG.error("Time taken in allocating blocks by SCM: {}", elapsed);
     } catch (SCMException ex) {
       omMetrics.incNumBlockAllocateCallFails();
       if (ex.getResult()
@@ -173,8 +177,11 @@ public abstract class OMKeyRequest extends OMClientRequest {
           .setOffset(0)
           .setPipeline(allocatedBlock.getPipeline());
       if (grpcBlockTokenEnabled) {
+        long start = Time.monotonicNow();
         builder.setToken(secretManager.generateToken(remoteUser, blockID,
             EnumSet.of(READ, WRITE), scmBlockSize));
+        long elapsed = Time.monotonicNow() - start;
+        LOG.error("Time taken in token generation: {}", elapsed);
       }
       locationInfos.add(builder.build());
     }

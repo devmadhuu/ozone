@@ -252,7 +252,7 @@ function ozone_suppress_shell_log
       && [[ "${OZONE_CLASSNAME}" != "org.apache.hadoop.ozone.freon.Freon" ]] \
       && [[ -z "${OZONE_ORIGINAL_LOGLEVEL}" ]] \
       && [[ -z "${OZONE_ORIGINAL_ROOT_LOGGER}" ]]; then
-    OZONE_LOGLEVEL=OFF
+    OZONE_LOGLEVEL=ON
     OZONE_ROOT_LOGGER="${OZONE_LOGLEVEL},console"
   fi
 }
