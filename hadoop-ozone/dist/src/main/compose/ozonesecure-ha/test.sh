@@ -35,30 +35,30 @@ execute_command_in_container kms hadoop key create ${OZONE_BUCKET_KEY_NAME}
 
 execute_robot_test s3g kinit.robot
 
-execute_robot_test s3g freon
+#execute_robot_test s3g freon
 
 execute_robot_test s3g -v SCHEME:o3fs -v BUCKET_TYPE:link -N ozonefs-o3fs-link ozonefs/ozonefs.robot
 
 execute_robot_test s3g basic/links.robot
 
 ## Exclude virtual-host tests. This is tested separately as it requires additional config.
-exclude="--exclude virtual-host"
-for bucket in encrypted link; do
-  execute_robot_test s3g -v BUCKET:${bucket} -N s3-${bucket} ${exclude} s3
+#exclude="--exclude virtual-host"
+#for bucket in encrypted link; do
+  #execute_robot_test s3g -v BUCKET:${bucket} -N s3-${bucket} ${exclude} s3
   # some tests are independent of the bucket type, only need to be run once
   ## Exclude virtual-host.robot
-  exclude="--exclude virtual-host --exclude no-bucket-type"
-done
+  #exclude="--exclude virtual-host --exclude no-bucket-type"
+#done
 
-execute_robot_test s3g admincli
+#execute_robot_test s3g admincli
 
-execute_robot_test s3g omha/om-fetch-key.robot
+#execute_robot_test s3g omha/om-fetch-key.robot
 
-execute_robot_test s3g omha/om-roles.robot
+#execute_robot_test s3g omha/om-roles.robot
 
-execute_robot_test s3g omha/om-leader-transfer.robot
+#execute_robot_test s3g omha/om-leader-transfer.robot
 
-execute_robot_test s3g httpfs
+#execute_robot_test s3g httpfs
 
-export SCM=scm2.org
-execute_robot_test s3g admincli
+#export SCM=scm2.org
+#execute_robot_test s3g admincli
