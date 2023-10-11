@@ -163,6 +163,8 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
   public void notifyLeaderChanged(RaftGroupMemberId groupMemberId,
                                   RaftPeerId newLeaderId) {
     // Initialize OMHAMetrics
+    LOG.info("notifyLeaderChanged with new leader Id: {}",
+        newLeaderId.toString());
     ozoneManager.omHAMetricsInit(newLeaderId.toString());
   }
 
