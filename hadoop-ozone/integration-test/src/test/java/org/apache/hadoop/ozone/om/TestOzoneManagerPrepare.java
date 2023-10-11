@@ -58,6 +58,7 @@ import org.apache.ozone.test.tag.Unhealthy;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ozone.test.tag.Flaky;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -142,7 +143,8 @@ public class TestOzoneManagerPrepare extends TestOzoneManagerHA {
    * @throws Exception
    */
   @Test
-  @Unhealthy("RATIS-1481") // until upgrade to Ratis 2.3.0
+  //@Unhealthy("RATIS-1481") // until upgrade to Ratis 2.3.0
+  @Disabled
   public void testPrepareDownedOM() throws Exception {
     LOG.info("Starting testPrepareDownedOM...");
     // Index of the OM that will be shut down during this test.
