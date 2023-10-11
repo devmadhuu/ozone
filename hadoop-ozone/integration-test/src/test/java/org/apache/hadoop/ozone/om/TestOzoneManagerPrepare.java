@@ -98,7 +98,13 @@ public class TestOzoneManagerPrepare extends TestOzoneManagerHA {
   public void initOM() throws Exception {
     setup();
     LOG.info("Waiting for OM leader election");
-    GenericTestUtils.waitFor(() -> cluster.getOMLeader() != null,
+    GenericTestUtils.waitFor(() -> {
+          LOG.info("cluster.getOzoneManager() is running: {}, " +
+              "cluster OM RatisServer state: {}",
+              cluster.getOzoneManager().isRunning(),
+          cluster.getOzoneManager().getOmRatisServer().getServerState());
+          return cluster.getOMLeader() != null;
+        },
         1000, 120_000);
     submitCancelPrepareRequest();
     assertClusterNotPrepared();

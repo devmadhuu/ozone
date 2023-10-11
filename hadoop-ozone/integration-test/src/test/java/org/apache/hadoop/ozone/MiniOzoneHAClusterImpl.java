@@ -194,8 +194,10 @@ public class MiniOzoneHAClusterImpl extends MiniOzoneClusterImpl {
     if (null != activeServices) {
       activeServices.forEach(ozoneManager -> {
         LOG.info("OM HA Active Services with OM Node Id {} and OM " +
-            "Service Id: {}", ozoneManager.getOMNodeId(),
-            ozoneManager.getOMServiceId());
+            "Service Id: {}, ozoneManager running :{}, OMRatisServer state: {}",
+            ozoneManager.getOMNodeId(),
+            ozoneManager.getOMServiceId(), ozoneManager.isRunning(),
+            ozoneManager.getOmRatisServer().getServerState());
       });
     }
     for (OzoneManager ozoneManager : activeServices) {
