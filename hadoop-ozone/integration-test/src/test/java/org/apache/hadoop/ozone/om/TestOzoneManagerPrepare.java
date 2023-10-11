@@ -109,6 +109,7 @@ public class TestOzoneManagerPrepare extends TestOzoneManagerHA {
    */
   @Test
   public void testPrepareWithTransactions() throws Exception {
+    LOG.info("Starting testPrepareWithTransactions...");
     long prepareIndex = submitPrepareRequest();
     assertClusterPrepared(prepareIndex);
     assertRatisLogsCleared();
@@ -143,6 +144,7 @@ public class TestOzoneManagerPrepare extends TestOzoneManagerHA {
   @Test
   @Unhealthy("RATIS-1481") // until upgrade to Ratis 2.3.0
   public void testPrepareDownedOM() throws Exception {
+    LOG.info("Starting testPrepareDownedOM...");
     // Index of the OM that will be shut down during this test.
     final int shutdownOMIndex = 2;
     List<OzoneManager> runningOms = cluster.getOzoneManagersList();
@@ -198,6 +200,7 @@ public class TestOzoneManagerPrepare extends TestOzoneManagerHA {
 
   @Test
   public void testPrepareWithRestart() throws Exception {
+    LOG.info("Starting testPrepareWithRestart...");
     // Create fresh cluster for this test to prevent timeout from restarting
     // modified cluster.
     shutdown();
@@ -222,6 +225,7 @@ public class TestOzoneManagerPrepare extends TestOzoneManagerHA {
       "be able to do anything with 2 OMs down.")
   @Test
   public void testPrepareFailsWhenTwoOmsAreDown() throws Exception {
+    LOG.info("Starting testPrepareFailsWhenTwoOmsAreDown...");
     // Shut down 2 OMs.
     for (int i : Arrays.asList(1, 2)) {
       cluster.stopOzoneManager(i);
@@ -246,6 +250,7 @@ public class TestOzoneManagerPrepare extends TestOzoneManagerHA {
    */
   @Test
   public void testPrepareWithMultipleThreads() throws Exception {
+    LOG.info("Starting testPrepareWithMultipleThreads...");
     final int numThreads = 10;
     final int prepareTaskIndex = 5;
 
@@ -301,6 +306,7 @@ public class TestOzoneManagerPrepare extends TestOzoneManagerHA {
 
   @Test
   public void testCancelPrepare() throws Exception {
+    LOG.info("Starting testCancelPrepare...");
     String volumeName = VOLUME + UUID.randomUUID().toString();
     Set<String> writtenKeys = writeKeysAndWaitForLogs(volumeName, 10);
     long prepareIndex = submitPrepareRequest();
