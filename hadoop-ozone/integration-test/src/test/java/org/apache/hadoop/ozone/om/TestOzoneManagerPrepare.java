@@ -490,8 +490,11 @@ public class TestOzoneManagerPrepare extends TestOzoneManagerHA {
       LambdaTestUtils.await(WAIT_TIMEOUT_MILLIS,
           1000, () -> {
             if (!om.isRunning()) {
+              LOG.info("OM node {} is not running", om.getOMNodeId());
               return false;
             } else {
+              LOG.info("OM node: {} prepare state: {}", om.getOMNodeId(),
+                  om.getPrepareState().getState().getStatus());
               return om.getPrepareState().getState().getStatus() ==
                   PrepareStatus.NOT_PREPARED;
             }
