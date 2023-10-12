@@ -268,7 +268,9 @@ public class TestOzoneManagerPrepare extends TestOzoneManagerHA {
       Future<Long> future = tasks.get(i);
 
       if (i == prepareTaskIndex) {
+        LOG.info("Asserting if cluster is prepared...");
         assertClusterPrepared(future.get());
+        LOG.info("Asserting if Ratis logs cleared...");
         assertRatisLogsCleared();
       } else {
         try {
@@ -339,6 +341,8 @@ public class TestOzoneManagerPrepare extends TestOzoneManagerHA {
     if (files != null) {
       for (File file : files) {
         if (file.getName().startsWith("log")) {
+          LOG.info("Ratis logs for om node: {} are present at ratis dir: {}",
+              om.getOMNodeId(), logDir.getPath());
           return true;
         }
       }
@@ -461,8 +465,10 @@ public class TestOzoneManagerPrepare extends TestOzoneManagerHA {
             OzoneManagerPrepareState.State state =
                 om.getPrepareState().getState();
 
-            LOG.info("{} has prepare status: {} prepare index: {}.",
-                om.getOMNodeId(), state.getStatus(), state.getIndex());
+            LOG.info("{} has prepare status: {} prepare index: {} and " +
+                    "expectedPreparedIndex : {}.",
+                om.getOMNodeId(), state.getStatus(), state.getIndex(),
+                expectedPreparedIndex);
 
             return (state.getStatus() == PrepareStatus.PREPARE_COMPLETED) &&
                 (state.getIndex() >= expectedPreparedIndex);
