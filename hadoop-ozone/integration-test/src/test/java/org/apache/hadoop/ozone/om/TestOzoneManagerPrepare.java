@@ -75,7 +75,7 @@ public class TestOzoneManagerPrepare extends TestOzoneManagerHA {
   // Maximum time to wait for conditions involving Ratis logs.
   private static final int WAIT_TIMEOUT_MILLIS = 120000;
   private static final long PREPARE_FLUSH_WAIT_TIMEOUT_SECONDS = 120L;
-  private static final long PREPARE_FLUSH_INTERVAL_SECONDS = 5L;
+  private static final long PREPARE_FLUSH_INTERVAL_SECONDS = 1L;
 
   private MiniOzoneHAClusterImpl cluster;
   private ClientProtocol clientProtocol;
