@@ -181,7 +181,7 @@ public class OMPrepareRequest extends OMClientRequest {
       // Check OM DB.
       lastOMDBFlushIndex = om.getRatisSnapshotIndex();
       omDBFlushed = (lastOMDBFlushIndex >= minOMDBFlushIndex);
-      LOG.debug("{} Current DB transaction index {}.", om.getOMNodeId(),
+      LOG.info("{} Current DB transaction index {}.", om.getOMNodeId(),
           lastOMDBFlushIndex);
 
       // Check ratis state machine.
@@ -189,7 +189,7 @@ public class OMPrepareRequest extends OMClientRequest {
           division.getStateMachine().getLastAppliedTermIndex().getIndex();
       ratisStateMachineApplied = (lastRatisCommitIndex >=
           minRatisStateMachineIndex);
-      LOG.debug("{} Current Ratis state machine transaction index {}.",
+      LOG.info("{} Current Ratis state machine transaction index {}.",
           om.getOMNodeId(), lastRatisCommitIndex);
 
       if (!(omDBFlushed && ratisStateMachineApplied)) {
@@ -242,7 +242,7 @@ public class OMPrepareRequest extends OMClientRequest {
       long actualPurgeIndex = purgeFuture.get();
 
       if (actualPurgeIndex != snapshotIndex) {
-        LOG.warn("Actual purge index {} does not " +
+        LOG.info("Actual purge index {} does not " +
               "match specified purge index {}. ", actualPurgeIndex,
             snapshotIndex);
       }

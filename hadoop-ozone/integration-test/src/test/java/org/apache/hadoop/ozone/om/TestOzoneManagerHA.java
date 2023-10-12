@@ -84,7 +84,7 @@ public abstract class TestOzoneManagerHA {
   private static String omId;
   private static String omServiceId;
   private static int numOfOMs = 3;
-  private static final int LOG_PURGE_GAP = 50;
+  private static final int LOG_PURGE_GAP = 10;
   /* Reduce max number of retries to speed up unit test. */
   private static final int OZONE_CLIENT_FAILOVER_MAX_ATTEMPTS = 5;
   private static final int IPC_CLIENT_CONNECT_MAX_RETRIES = 4;
