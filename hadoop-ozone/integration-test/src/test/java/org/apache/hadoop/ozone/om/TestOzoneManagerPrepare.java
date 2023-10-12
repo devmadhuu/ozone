@@ -339,8 +339,6 @@ public class TestOzoneManagerPrepare extends TestOzoneManagerHA {
     if (files != null) {
       for (File file : files) {
         if (file.getName().startsWith("log")) {
-          LOG.info("Ratis log present in logDir: {} for OM: {}",
-              logDir.getPath(), om.getOMNodeId());
           return true;
         }
       }
@@ -463,10 +461,8 @@ public class TestOzoneManagerPrepare extends TestOzoneManagerHA {
             OzoneManagerPrepareState.State state =
                 om.getPrepareState().getState();
 
-            LOG.info("{} has prepare status: {} prepare index: {} " +
-                    "and expected index: {}",
-                om.getOMNodeId(), state.getStatus(), state.getIndex(),
-                expectedPreparedIndex);
+            LOG.info("{} has prepare status: {} prepare index: {}.",
+                om.getOMNodeId(), state.getStatus(), state.getIndex());
 
             return (state.getStatus() == PrepareStatus.PREPARE_COMPLETED) &&
                 (state.getIndex() >= expectedPreparedIndex);
