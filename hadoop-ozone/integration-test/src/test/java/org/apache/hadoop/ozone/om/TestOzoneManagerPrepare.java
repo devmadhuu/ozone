@@ -522,6 +522,8 @@ public class TestOzoneManagerPrepare extends TestOzoneManagerHA {
   private void assertRatisLogsCleared(List<OzoneManager> ozoneManagers)
       throws Exception {
     for (OzoneManager om: ozoneManagers) {
+      LOG.info("OM node : {} is leader: {}", om.getOMNodeId(),
+          om.isLeaderReady());
       LambdaTestUtils.await(WAIT_TIMEOUT_MILLIS, 1000,
           () -> !logFilesPresentInRatisPeer(om));
     }

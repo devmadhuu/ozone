@@ -242,7 +242,7 @@ public class OMPrepareRequest extends OMClientRequest {
       long actualPurgeIndex = purgeFuture.get();
 
       if (actualPurgeIndex != snapshotIndex) {
-        LOG.warn("Actual purge index {} does not " +
+        LOG.info("Actual purge index {} does not " +
               "match specified purge index {}. ", actualPurgeIndex,
             snapshotIndex);
       }
