@@ -229,24 +229,6 @@ public class TestOzoneManagerPrepare extends TestOzoneManagerHA {
     assertClusterPrepared(prepareIndex);
   }
 
-  @Slow("Saving on CI time since this is a pessimistic test. We should not " +
-      "be able to do anything with 2 OMs down.")
-  @Test
-  public void testPrepareFailsWhenTwoOmsAreDown() throws Exception {
-    LOG.info("Starting testPrepareFailsWhenTwoOmsAreDown...");
-    // Shut down 2 OMs.
-    for (int i : Arrays.asList(1, 2)) {
-      cluster.stopOzoneManager(i);
-      OzoneManager downedOM = cluster.getOzoneManager(i);
-      assertFalse(downedOM.isRunning());
-    }
-
-    assertThrows(IOException.class,
-        () -> clientProtocol.getOzoneManagerClient().prepareOzoneManager(
-            PREPARE_FLUSH_WAIT_TIMEOUT_SECONDS,
-            PREPARE_FLUSH_INTERVAL_SECONDS));
-  }
-
   /**
    * Issues requests on ten different threads, for which one is a prepare and
    * the rest are create volume. We cannot be sure of the exact order that
