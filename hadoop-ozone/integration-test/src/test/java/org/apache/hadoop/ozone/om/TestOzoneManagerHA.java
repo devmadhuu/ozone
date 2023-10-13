@@ -161,6 +161,8 @@ public abstract class TestOzoneManagerHA {
     /* Reduce IPC retry interval to speed up unit test. */
     conf.setInt(IPC_CLIENT_CONNECT_RETRY_INTERVAL_KEY, 200);
     conf.setInt(OMConfigKeys.OZONE_OM_RATIS_LOG_PURGE_GAP, LOG_PURGE_GAP);
+    conf.setInt(
+        OMConfigKeys.OZONE_OM_RATIS_LOG_APPENDER_QUEUE_NUM_ELEMENTS, 10);
     conf.setLong(
         OMConfigKeys.OZONE_OM_RATIS_SNAPSHOT_AUTO_TRIGGER_THRESHOLD_KEY,
         SNAPSHOT_THRESHOLD);
