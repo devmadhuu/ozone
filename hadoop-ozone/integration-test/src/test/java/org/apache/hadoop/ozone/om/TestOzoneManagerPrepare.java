@@ -521,12 +521,29 @@ public class TestOzoneManagerPrepare extends TestOzoneManagerHA {
 
   private void assertRatisLogsCleared(List<OzoneManager> ozoneManagers)
       throws Exception {
+    OzoneManager leaderNode = null;
     for (OzoneManager om: ozoneManagers) {
       LOG.info("OM node : {} is leader: {}", om.getOMNodeId(),
           om.isLeaderReady());
-      LambdaTestUtils.await(WAIT_TIMEOUT_MILLIS, 1000,
-          () -> !logFilesPresentInRatisPeer(om));
+      if (!om.isLeaderReady()) {
+        leaderNode = om;
+        break;
+      }
     }
+    if (null != leaderNode) {
+      OzoneManager finalLeaderNode = leaderNode;
+      LambdaTestUtils.await(WAIT_TIMEOUT_MILLIS, 1000,
+          () -> !logFilesPresentInRatisPeer(finalLeaderNode));
+    }
+    ozoneManagers.stream().filter(om -> !om.isLeaderReady()).map(om -> {
+      try {
+        LambdaTestUtils.await(WAIT_TIMEOUT_MILLIS, 1000,
+            () -> !logFilesPresentInRatisPeer(om));
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
+      return null;
+    });
   }
 
   private void assertShouldBeAbleToPrepare() throws Exception {

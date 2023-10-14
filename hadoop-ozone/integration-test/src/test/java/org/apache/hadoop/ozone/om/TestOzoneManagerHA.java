@@ -84,11 +84,11 @@ public abstract class TestOzoneManagerHA {
   private static String omId;
   private static String omServiceId;
   private static int numOfOMs = 3;
-  private static final int LOG_PURGE_GAP = 10;
+  private static final int LOG_PURGE_GAP = 5;
   /* Reduce max number of retries to speed up unit test. */
   private static final int OZONE_CLIENT_FAILOVER_MAX_ATTEMPTS = 5;
   private static final int IPC_CLIENT_CONNECT_MAX_RETRIES = 4;
-  private static final long SNAPSHOT_THRESHOLD = 50;
+  private static final long SNAPSHOT_THRESHOLD = 5;
   private static final Duration RETRY_CACHE_DURATION = Duration.ofSeconds(30);
   private static OzoneClient client;
 
@@ -162,7 +162,7 @@ public abstract class TestOzoneManagerHA {
     conf.setInt(IPC_CLIENT_CONNECT_RETRY_INTERVAL_KEY, 200);
     conf.setInt(OMConfigKeys.OZONE_OM_RATIS_LOG_PURGE_GAP, LOG_PURGE_GAP);
     conf.setInt(
-        OMConfigKeys.OZONE_OM_RATIS_LOG_APPENDER_QUEUE_NUM_ELEMENTS, 10);
+        OMConfigKeys.OZONE_OM_RATIS_LOG_APPENDER_QUEUE_NUM_ELEMENTS, 5);
     conf.setLong(
         OMConfigKeys.OZONE_OM_RATIS_SNAPSHOT_AUTO_TRIGGER_THRESHOLD_KEY,
         SNAPSHOT_THRESHOLD);
