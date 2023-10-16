@@ -521,6 +521,7 @@ public class TestOzoneManagerPrepare extends TestOzoneManagerHA {
 
   private void assertRatisLogsCleared(List<OzoneManager> ozoneManagers)
       throws Exception {
+    cluster.getOzoneManager().awaitDoubleBufferFlush();
     for (OzoneManager om: ozoneManagers) {
       LOG.info("OM node : {} is leader: {}", om.getOMNodeId(),
           om.isLeaderReady());
