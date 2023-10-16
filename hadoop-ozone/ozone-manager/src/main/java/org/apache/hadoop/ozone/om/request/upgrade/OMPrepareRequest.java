@@ -191,7 +191,11 @@ public class OMPrepareRequest extends OMClientRequest {
           minRatisStateMachineIndex);
       LOG.info("{} Current Ratis state machine transaction index {}.",
           om.getOMNodeId(), lastRatisCommitIndex);
-
+      LOG.info("{} lastRatisCommitIndex: {}, minRatisStateMachineIndex: {}, " +
+          "so lastRatisCommitIndex still < minRatisStateMachineIndex and " +
+          "hence ratisStateMachineApplied: {}", om.getOMNodeId(),
+          lastRatisCommitIndex, minRatisStateMachineIndex,
+          ratisStateMachineApplied);
       if (!(omDBFlushed && ratisStateMachineApplied)) {
         Thread.sleep(flushCheckInterval.toMillis());
       }
