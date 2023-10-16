@@ -452,7 +452,7 @@ public class TestOzoneManagerPrepare extends TestOzoneManagerHA {
 
   private void assertClusterPrepared(long expectedPreparedIndex,
       List<OzoneManager> ozoneManagers) throws Exception {
-
+    cluster.getOzoneManager().awaitDoubleBufferFlush();
     for (OzoneManager om : ozoneManagers) {
       // Wait for each OM to be running and transaction info to match to know
       // it is prepared.
