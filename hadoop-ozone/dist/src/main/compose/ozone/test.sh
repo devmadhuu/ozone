@@ -31,28 +31,30 @@ start_docker_env
 execute_robot_test scm lib
 execute_robot_test scm ozone-lib
 
-#execute_robot_test om auditparser
+execute_robot_test om auditparser
 
 execute_robot_test scm basic
 
-#execute_robot_test scm gdpr
+execute_robot_test scm gdpr
 
-#execute_robot_test scm security/ozone-secure-token.robot
+execute_robot_test scm security/ozone-secure-token.robot
 
-#execute_robot_test scm recon
+execute_robot_test scm recon
 
-#execute_robot_test scm om-ratis
+execute_robot_test scm om-ratis
 
-#execute_robot_test scm freon
+execute_robot_test scm freon
 
-#execute_robot_test scm cli
-#execute_robot_test scm admincli
+execute_robot_test scm cli
+execute_robot_test scm admincli
 
-#execute_robot_test scm -v USERNAME:httpfs httpfs
-#execute_debug_tests
+execute_robot_test scm debug/ozone-debug-lease-recovery.robot
 
-#execute_robot_test scm -v SCHEME:o3fs -v BUCKET_TYPE:bucket -N ozonefs-o3fs-bucket ozonefs/ozonefs.robot
+execute_robot_test scm -v USERNAME:httpfs httpfs
+execute_debug_tests
 
-#execute_robot_test s3g grpc/grpc-om-s3-metrics.robot
+execute_robot_test scm -v SCHEME:o3fs -v BUCKET_TYPE:bucket -N ozonefs-o3fs-bucket ozonefs/ozonefs.robot
 
-#execute_robot_test scm --exclude pre-finalized-snapshot-tests snapshot
+execute_robot_test s3g grpc/grpc-om-s3-metrics.robot
+
+execute_robot_test scm --exclude pre-finalized-snapshot-tests snapshot
