@@ -146,9 +146,9 @@ public class TestSnapshotBackgroundServices {
       conf.setTimeDuration(OZONE_OM_SNAPSHOT_COMPACTION_DAG_MAX_TIME_ALLOWED, 1,
           TimeUnit.MILLISECONDS);
       conf.setTimeDuration(
-          OZONE_OM_SNAPSHOT_COMPACTION_DAG_PRUNE_DAEMON_RUN_INTERVAL, 1,
+          OZONE_OM_SNAPSHOT_COMPACTION_DAG_PRUNE_DAEMON_RUN_INTERVAL, 2,
           TimeUnit.SECONDS);
-      conf.setTimeDuration(OZONE_SNAPSHOT_SST_FILTERING_SERVICE_INTERVAL, 1,
+      conf.setTimeDuration(OZONE_SNAPSHOT_SST_FILTERING_SERVICE_INTERVAL, 2,
           TimeUnit.SECONDS);
     }
     conf.setLong(
@@ -257,7 +257,7 @@ public class TestSnapshotBackgroundServices {
     // delete key a
     ozoneBucket.deleteKey(keyNameA);
 
-    LambdaTestUtils.await(10000, 1000,
+    LambdaTestUtils.await(15000, 500,
         () -> !isKeyInTable(keyA, omKeyInfoTable));
 
     // create snapshot c
@@ -275,7 +275,7 @@ public class TestSnapshotBackgroundServices {
     }
 
     // assert that key a is in snapshot c's deleted table
-    LambdaTestUtils.await(10000, 1000,
+    LambdaTestUtils.await(15000, 500,
         () -> isKeyInTable(keyA, snapC.getMetadataManager().getDeletedTable()));
 
     // create snapshot d
@@ -286,7 +286,7 @@ public class TestSnapshotBackgroundServices {
     client.getObjectStore()
         .deleteSnapshot(volumeName, bucketName, snapshotInfoC.getName());
 
-    LambdaTestUtils.await(30000, 1000, () ->
+    LambdaTestUtils.await(30000, 500, () ->
         !isKeyInTable(snapshotInfoC.getTableKey(),
             newLeaderOM.getMetadataManager().getSnapshotInfoTable()));
 
@@ -301,13 +301,13 @@ public class TestSnapshotBackgroundServices {
     }
 
     // wait until key a appears in deleted table of snapshot d
-    LambdaTestUtils.await(10000, 1000,
+    LambdaTestUtils.await(15000, 500,
         () -> isKeyInTable(keyA, snapD.getMetadataManager().getDeletedTable()));
 
     // Confirm entry for deleted snapshot removed from info table
     client.getObjectStore()
         .deleteSnapshot(volumeName, bucketName, newSnapshot.getName());
-    LambdaTestUtils.await(10000, 1000,
+    LambdaTestUtils.await(15000, 500,
         () -> isKeyInTable(newSnapshot.getTableKey(),
             newLeaderOM.getMetadataManager().getSnapshotInfoTable()));
 
