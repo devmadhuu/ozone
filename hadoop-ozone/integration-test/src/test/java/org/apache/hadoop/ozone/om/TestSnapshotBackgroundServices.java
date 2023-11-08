@@ -308,7 +308,7 @@ public class TestSnapshotBackgroundServices {
     client.getObjectStore()
         .deleteSnapshot(volumeName, bucketName, newSnapshot.getName());
     LambdaTestUtils.await(15000, 500,
-        () -> isKeyInTable(newSnapshot.getTableKey(),
+        () -> !isKeyInTable(newSnapshot.getTableKey(),
             newLeaderOM.getMetadataManager().getSnapshotInfoTable()));
 
     confirmSnapDiffForTwoSnapshotsDifferingBySingleKey(
