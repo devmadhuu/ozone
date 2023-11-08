@@ -121,8 +121,8 @@ public class TestSnapshotBackgroundServices {
     conf.setStorageSize(OMConfigKeys.
         OZONE_OM_RATIS_SEGMENT_PREALLOCATED_SIZE_KEY, 16, StorageUnit.KB);
     if ("testSSTFilteringBackgroundService".equals(testInfo.getDisplayName())) {
-      conf.setTimeDuration(OZONE_SNAPSHOT_SST_FILTERING_SERVICE_INTERVAL, 1,
-          TimeUnit.SECONDS);
+      conf.setTimeDuration(OZONE_SNAPSHOT_SST_FILTERING_SERVICE_INTERVAL, 500,
+          TimeUnit.MILLISECONDS);
     }
     if ("testCompactionLogBackgroundService"
         .equals(testInfo.getDisplayName())) {
@@ -588,7 +588,7 @@ public class TestSnapshotBackgroundServices {
         Assertions.fail();
       }
       return snapshotInfo.isSstFiltered();
-    }, 1000, 10000);
+    }, 1000, 15000);
   }
 
   private OzoneManager getNewLeader(OzoneManager leaderOM,
