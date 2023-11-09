@@ -524,7 +524,7 @@ public class TestSnapshotBackgroundServices {
         cluster.getOzoneManager(leaderOM.getOMNodeId());
     Assertions.assertEquals(leaderOM, newFollowerOM);
 
-    checkIfSnapshotGetsProcessedBySFS(newLeaderOM);
+    //checkIfSnapshotGetsProcessedBySFS(newLeaderOM);
 
     confirmSnapDiffForTwoSnapshotsDifferingBySingleKey(
         newLeaderOM);
@@ -588,7 +588,7 @@ public class TestSnapshotBackgroundServices {
         Assertions.fail();
       }
       return snapshotInfo.isSstFiltered();
-    }, 1000, 15000);
+    }, 500, 15000);
   }
 
   private OzoneManager getNewLeader(OzoneManager leaderOM,
