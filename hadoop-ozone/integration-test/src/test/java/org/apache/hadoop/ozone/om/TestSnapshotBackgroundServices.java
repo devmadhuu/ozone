@@ -149,9 +149,9 @@ public class TestSnapshotBackgroundServices {
       conf.setTimeDuration(OZONE_OM_SNAPSHOT_COMPACTION_DAG_MAX_TIME_ALLOWED, 1,
           TimeUnit.MILLISECONDS);
       conf.setTimeDuration(
-          OZONE_OM_SNAPSHOT_COMPACTION_DAG_PRUNE_DAEMON_RUN_INTERVAL, 3,
+          OZONE_OM_SNAPSHOT_COMPACTION_DAG_PRUNE_DAEMON_RUN_INTERVAL, 1,
           TimeUnit.SECONDS);
-      conf.setTimeDuration(OZONE_SNAPSHOT_SST_FILTERING_SERVICE_INTERVAL, 3,
+      conf.setTimeDuration(OZONE_SNAPSHOT_SST_FILTERING_SERVICE_INTERVAL, 1,
           TimeUnit.SECONDS);
     }
     conf.setLong(
@@ -311,7 +311,7 @@ public class TestSnapshotBackgroundServices {
     client.getObjectStore()
         .deleteSnapshot(volumeName, bucketName, newSnapshot.getName());
     LambdaTestUtils.await(10000, 500,
-        () -> isKeyInTable(newSnapshot.getTableKey(),
+        () -> !isKeyInTable(newSnapshot.getTableKey(),
             newLeaderOM.getMetadataManager().getSnapshotInfoTable()));
 
     confirmSnapDiffForTwoSnapshotsDifferingBySingleKey(
