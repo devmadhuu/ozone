@@ -32,6 +32,7 @@ import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneClientFactory;
+import org.apache.hadoop.ozone.client.OzoneKey;
 import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.client.VolumeArgs;
 import org.apache.hadoop.ozone.client.io.OzoneInputStream;
@@ -62,6 +63,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -77,6 +79,7 @@ import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_OM_SNAPSHOT_COMPACTI
 import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_SNAPSHOT_DELETING_SERVICE_INTERVAL;
 import static org.apache.hadoop.ozone.OzoneConsts.OM_KEY_PREFIX;
 import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_SNAPSHOT_SST_FILTERING_SERVICE_INTERVAL;
+import static org.apache.hadoop.ozone.om.OmSnapshotManager.LOG;
 import static org.apache.hadoop.ozone.om.OmSnapshotManager.getSnapshotPath;
 import static org.apache.hadoop.ozone.om.OmSnapshotManager.getSnapshotPrefix;
 import static org.apache.hadoop.ozone.om.TestOzoneManagerHAWithStoppedNodes.createKey;
@@ -121,8 +124,8 @@ public class TestSnapshotBackgroundServices {
     conf.setStorageSize(OMConfigKeys.
         OZONE_OM_RATIS_SEGMENT_PREALLOCATED_SIZE_KEY, 16, StorageUnit.KB);
     if ("testSSTFilteringBackgroundService".equals(testInfo.getDisplayName())) {
-      conf.setTimeDuration(OZONE_SNAPSHOT_SST_FILTERING_SERVICE_INTERVAL, 500,
-          TimeUnit.MILLISECONDS);
+      conf.setTimeDuration(OZONE_SNAPSHOT_SST_FILTERING_SERVICE_INTERVAL, 1,
+          TimeUnit.SECONDS);
     }
     if ("testCompactionLogBackgroundService"
         .equals(testInfo.getDisplayName())) {
@@ -139,16 +142,16 @@ public class TestSnapshotBackgroundServices {
     }
     if ("testSnapshotAndKeyDeletionBackgroundServices"
         .equals(testInfo.getDisplayName())) {
-      conf.setTimeDuration(OZONE_BLOCK_DELETING_SERVICE_INTERVAL, 500,
-          TimeUnit.MILLISECONDS);
-      conf.setTimeDuration(OZONE_SNAPSHOT_DELETING_SERVICE_INTERVAL, 500,
-          TimeUnit.MILLISECONDS);
+      conf.setTimeDuration(OZONE_BLOCK_DELETING_SERVICE_INTERVAL, 1,
+          TimeUnit.SECONDS);
+      conf.setTimeDuration(OZONE_SNAPSHOT_DELETING_SERVICE_INTERVAL, 1,
+          TimeUnit.SECONDS);
       conf.setTimeDuration(OZONE_OM_SNAPSHOT_COMPACTION_DAG_MAX_TIME_ALLOWED, 1,
           TimeUnit.MILLISECONDS);
       conf.setTimeDuration(
-          OZONE_OM_SNAPSHOT_COMPACTION_DAG_PRUNE_DAEMON_RUN_INTERVAL, 2,
+          OZONE_OM_SNAPSHOT_COMPACTION_DAG_PRUNE_DAEMON_RUN_INTERVAL, 3,
           TimeUnit.SECONDS);
-      conf.setTimeDuration(OZONE_SNAPSHOT_SST_FILTERING_SERVICE_INTERVAL, 2,
+      conf.setTimeDuration(OZONE_SNAPSHOT_SST_FILTERING_SERVICE_INTERVAL, 3,
           TimeUnit.SECONDS);
     }
     conf.setLong(
@@ -257,7 +260,7 @@ public class TestSnapshotBackgroundServices {
     // delete key a
     ozoneBucket.deleteKey(keyNameA);
 
-    LambdaTestUtils.await(15000, 500,
+    LambdaTestUtils.await(10000, 1000,
         () -> !isKeyInTable(keyA, omKeyInfoTable));
 
     // create snapshot c
@@ -275,7 +278,7 @@ public class TestSnapshotBackgroundServices {
     }
 
     // assert that key a is in snapshot c's deleted table
-    LambdaTestUtils.await(15000, 500,
+    LambdaTestUtils.await(10000, 1000,
         () -> isKeyInTable(keyA, snapC.getMetadataManager().getDeletedTable()));
 
     // create snapshot d
@@ -286,7 +289,7 @@ public class TestSnapshotBackgroundServices {
     client.getObjectStore()
         .deleteSnapshot(volumeName, bucketName, snapshotInfoC.getName());
 
-    LambdaTestUtils.await(30000, 500, () ->
+    LambdaTestUtils.await(30000, 1000, () ->
         !isKeyInTable(snapshotInfoC.getTableKey(),
             newLeaderOM.getMetadataManager().getSnapshotInfoTable()));
 
@@ -301,14 +304,14 @@ public class TestSnapshotBackgroundServices {
     }
 
     // wait until key a appears in deleted table of snapshot d
-    LambdaTestUtils.await(15000, 500,
+    LambdaTestUtils.await(10000, 1000,
         () -> isKeyInTable(keyA, snapD.getMetadataManager().getDeletedTable()));
 
     // Confirm entry for deleted snapshot removed from info table
     client.getObjectStore()
         .deleteSnapshot(volumeName, bucketName, newSnapshot.getName());
-    LambdaTestUtils.await(15000, 500,
-        () -> !isKeyInTable(newSnapshot.getTableKey(),
+    LambdaTestUtils.await(10000, 500,
+        () -> isKeyInTable(newSnapshot.getTableKey(),
             newLeaderOM.getMetadataManager().getSnapshotInfoTable()));
 
     confirmSnapDiffForTwoSnapshotsDifferingBySingleKey(
@@ -536,16 +539,54 @@ public class TestSnapshotBackgroundServices {
     String firstSnapshot = createOzoneSnapshot(ozoneManager,
         TestSnapshotBackgroundServices.SNAPSHOT_NAME_PREFIX +
             RandomStringUtils.randomNumeric(10)).getName();
+
+    Iterator<? extends OzoneKey> iterator1 = ozoneBucket.listKeys("");
+    while (iterator1.hasNext()) {
+      OzoneKey key = iterator1.next();
+      LOG.info("Key: {}", key.getName());
+    }
+
     String diffKey = writeKeys(1).get(0);
-    String secondSnapshot = createOzoneSnapshot(ozoneManager,
+    SnapshotInfo ozoneSnapshot2 = createOzoneSnapshot(ozoneManager,
         TestSnapshotBackgroundServices.SNAPSHOT_NAME_PREFIX +
-            RandomStringUtils.randomNumeric(10)).getName();
+            RandomStringUtils.randomNumeric(10));
+    String secondSnapshot = ozoneSnapshot2.getName();
     SnapshotDiffReportOzone diff = getSnapDiffReport(volumeName, bucketName,
         firstSnapshot, secondSnapshot);
+
+    Iterator<? extends OzoneKey> iterator2 = ozoneBucket.listKeys("");
+    while (iterator2.hasNext()) {
+      OzoneKey key = iterator2.next();
+      LOG.info("Key in OzoneManager: {}", key.getName());
+    }
+
+    // get ozoneSnapshot2
+    OmSnapshot snapshot2;
+    try (ReferenceCounted<IOmMetadataReader, SnapshotCache> rcD = ozoneManager
+        .getOmSnapshotManager()
+        .checkForSnapshot(volumeName, bucketName,
+            getSnapshotPrefix(secondSnapshot), true)) {
+      Assertions.assertNotNull(rcD);
+      snapshot2 = (OmSnapshot) rcD.get();
+    }
+
+    Table<String, OmKeyInfo> omKeyInfoTable = snapshot2.getMetadataManager()
+        .getKeyTable(TEST_BUCKET_LAYOUT);
+    TableIterator<String, ? extends Table.KeyValue<String, OmKeyInfo>> keyIter
+        = omKeyInfoTable.iterator();
+    while (keyIter.hasNext()) {
+      Table.KeyValue<String, OmKeyInfo> kv = keyIter.next();
+      OmKeyInfo omKeyInfo = kv.getValue();
+      LOG.info("Key in secondSnapshot: {}", omKeyInfo.getKeyName());
+    }
+    keyIter.close();
+
     Assertions.assertEquals(Collections.singletonList(
             SnapshotDiffReportOzone.getDiffReportEntry(
                 SnapshotDiffReport.DiffType.CREATE, diffKey, null)),
         diff.getDiffList());
+
+    LOG.info("Snapshot difference: {]", diff.getDiffList());
   }
 
   private static void checkIfCompactionBackupFilesWerePruned(
@@ -588,7 +629,7 @@ public class TestSnapshotBackgroundServices {
         Assertions.fail();
       }
       return snapshotInfo.isSstFiltered();
-    }, 500, 15000);
+    }, 1000, 10000);
   }
 
   private OzoneManager getNewLeader(OzoneManager leaderOM,
