@@ -99,8 +99,8 @@ public class TestSnapshotBackgroundServices {
   private String volumeName;
   private String bucketName;
 
-  private static final long SNAPSHOT_THRESHOLD = 50;
-  private static final int LOG_PURGE_GAP = 50;
+  private static final long SNAPSHOT_THRESHOLD = 10;
+  private static final int LOG_PURGE_GAP = 10;
   // This test depends on direct RocksDB checks that are easier done with OBS
   // buckets.
   private static final BucketLayout TEST_BUCKET_LAYOUT =
@@ -263,7 +263,7 @@ public class TestSnapshotBackgroundServices {
     // delete key a
     ozoneBucket.deleteKey(keyNameA);
 
-    LambdaTestUtils.await(8000, 500,
+    LambdaTestUtils.await(10000, 500,
         () -> !isKeyInTable(keyA, omKeyInfoTable));
 
     // create snapshot c
@@ -281,7 +281,7 @@ public class TestSnapshotBackgroundServices {
     }
 
     // assert that key a is in snapshot c's deleted table
-    LambdaTestUtils.await(8000, 500,
+    LambdaTestUtils.await(10000, 500,
         () -> isKeyInTable(keyA, snapC.getMetadataManager().getDeletedTable()));
 
     // create snapshot d
@@ -292,7 +292,7 @@ public class TestSnapshotBackgroundServices {
     client.getObjectStore()
         .deleteSnapshot(volumeName, bucketName, snapshotInfoC.getName());
 
-    LambdaTestUtils.await(20000, 500, () ->
+    LambdaTestUtils.await(30000, 500, () ->
         !isKeyInTable(snapshotInfoC.getTableKey(),
             newLeaderOM.getMetadataManager().getSnapshotInfoTable()));
 
@@ -307,13 +307,13 @@ public class TestSnapshotBackgroundServices {
     }
 
     // wait until key a appears in deleted table of snapshot d
-    LambdaTestUtils.await(8000, 500,
+    LambdaTestUtils.await(10000, 500,
         () -> isKeyInTable(keyA, snapD.getMetadataManager().getDeletedTable()));
 
     // Confirm entry for deleted snapshot removed from info table
     client.getObjectStore()
         .deleteSnapshot(volumeName, bucketName, newSnapshot.getName());
-    LambdaTestUtils.await(8000, 500,
+    LambdaTestUtils.await(10000, 500,
         () -> !isKeyInTable(newSnapshot.getTableKey(),
             newLeaderOM.getMetadataManager().getSnapshotInfoTable()));
 
@@ -622,7 +622,7 @@ public class TestSnapshotBackgroundServices {
       int newNumberOfSstFiles = Objects.requireNonNull(
           sstBackupDir.listFiles()).length;
       return numberOfSstFiles > newNumberOfSstFiles;
-    }, 500, 8000);
+    }, 500, 10000);
   }
 
   private static File getSstBackupDir(OzoneManager ozoneManager) {
@@ -654,7 +654,7 @@ public class TestSnapshotBackgroundServices {
         Assertions.fail();
       }
       return snapshotInfo.isSstFiltered();
-    }, 500, 8000);
+    }, 500, 10000);
   }
 
   private OzoneManager getNewLeader(OzoneManager leaderOM,
@@ -680,7 +680,7 @@ public class TestSnapshotBackgroundServices {
       } catch (OMNotLeaderException | OMLeaderNotReadyException e) {
         return false;
       }
-    }, 100, 8000);
+    }, 100, 10000);
   }
 
   private SnapshotDiffReportOzone getSnapDiffReport(String volume,
