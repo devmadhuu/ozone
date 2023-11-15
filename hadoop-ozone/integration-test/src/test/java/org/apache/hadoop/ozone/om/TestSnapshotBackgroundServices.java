@@ -228,6 +228,8 @@ public class TestSnapshotBackgroundServices {
         cluster.getOzoneManager(leaderOM.getOMNodeId());
     Assertions.assertEquals(leaderOM, newFollowerOM);
 
+    matchListOfKeys(newLeaderOM, newFollowerOM);
+
     SnapshotInfo newSnapshot = createOzoneSnapshot(newLeaderOM,
         SNAPSHOT_NAME_PREFIX + RandomStringUtils.randomNumeric(5));
 
@@ -315,7 +317,6 @@ public class TestSnapshotBackgroundServices {
         () -> !isKeyInTable(newSnapshot.getTableKey(),
             newLeaderOM.getMetadataManager().getSnapshotInfoTable()));
 
-    matchListOfKeys(newLeaderOM, newFollowerOM);
     confirmSnapDiffForTwoSnapshotsDifferingBySingleKey(
         newLeaderOM);
   }
@@ -410,6 +411,8 @@ public class TestSnapshotBackgroundServices {
         cluster.getOzoneManager(leaderOM.getOMNodeId());
     Assertions.assertEquals(leaderOM, newFollowerOM);
 
+    matchListOfKeys(newLeaderOM, newFollowerOM);
+
     List<CompactionLogEntry> compactionLogEntriesOnPreviousLeader =
         getCompactionLogEntries(leaderOM);
 
@@ -435,7 +438,6 @@ public class TestSnapshotBackgroundServices {
                 edge.source().getFileName() + "-" + edge.target().getFileName())
             .collect(toSet()));
 
-    matchListOfKeys(newLeaderOM, newFollowerOM);
     confirmSnapDiffForTwoSnapshotsDifferingBySingleKey(newLeaderOM);
   }
 
@@ -493,6 +495,8 @@ public class TestSnapshotBackgroundServices {
         cluster.getOzoneManager(leaderOM.getOMNodeId());
     Assertions.assertEquals(leaderOM, newFollowerOM);
 
+    matchListOfKeys(newLeaderOM, newFollowerOM);
+
     createSnapshotsEachWithNewKeys(newLeaderOM);
 
     File sstBackupDir = getSstBackupDir(newLeaderOM);
@@ -505,7 +509,6 @@ public class TestSnapshotBackgroundServices {
     checkIfCompactionBackupFilesWerePruned(sstBackupDir,
         numberOfSstFiles);
 
-    matchListOfKeys(newLeaderOM, newFollowerOM);
     confirmSnapDiffForTwoSnapshotsDifferingBySingleKey(newLeaderOM);
   }
 
