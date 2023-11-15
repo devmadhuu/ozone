@@ -39,6 +39,7 @@ import org.apache.hadoop.ozone.client.io.OzoneInputStream;
 import org.apache.hadoop.ozone.om.exceptions.OMLeaderNotReadyException;
 import org.apache.hadoop.ozone.om.exceptions.OMNotLeaderException;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
+import org.apache.hadoop.ozone.om.helpers.ListKeysResult;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.SnapshotInfo;
 import org.apache.hadoop.ozone.om.snapshot.ReferenceCounted;
@@ -314,6 +315,7 @@ public class TestSnapshotBackgroundServices {
         () -> !isKeyInTable(newSnapshot.getTableKey(),
             newLeaderOM.getMetadataManager().getSnapshotInfoTable()));
 
+    matchListOfKeys(newLeaderOM, newFollowerOM);
     confirmSnapDiffForTwoSnapshotsDifferingBySingleKey(
         newLeaderOM);
   }
@@ -433,7 +435,26 @@ public class TestSnapshotBackgroundServices {
                 edge.source().getFileName() + "-" + edge.target().getFileName())
             .collect(toSet()));
 
+    matchListOfKeys(newLeaderOM, newFollowerOM);
     confirmSnapDiffForTwoSnapshotsDifferingBySingleKey(newLeaderOM);
+  }
+
+  private void matchListOfKeys(OzoneManager newLeaderOM,
+      OzoneManager newFollowerOM)
+      throws TimeoutException, InterruptedException {
+    GenericTestUtils.waitFor(() -> {
+      ListKeysResult listKeysResult1 = null;
+      ListKeysResult listKeysResult2 = null;
+      try {
+        listKeysResult1 = newLeaderOM.listKeys(volumeName, bucketName, "", "",
+            Integer.MAX_VALUE);
+        listKeysResult2 = newFollowerOM.listKeys(volumeName, bucketName, "", "",
+            Integer.MAX_VALUE);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+      return listKeysResult1.getKeys().equals(listKeysResult2.getKeys());
+    }, 1000, 10000);
   }
 
   private List<CompactionLogEntry> getCompactionLogEntries(OzoneManager om)
@@ -484,6 +505,7 @@ public class TestSnapshotBackgroundServices {
     checkIfCompactionBackupFilesWerePruned(sstBackupDir,
         numberOfSstFiles);
 
+    matchListOfKeys(newLeaderOM, newFollowerOM);
     confirmSnapDiffForTwoSnapshotsDifferingBySingleKey(newLeaderOM);
   }
 
@@ -528,7 +550,7 @@ public class TestSnapshotBackgroundServices {
     Assertions.assertEquals(leaderOM, newFollowerOM);
 
     //checkIfSnapshotGetsProcessedBySFS(newLeaderOM);
-
+    matchListOfKeys(newLeaderOM, newFollowerOM);
     confirmSnapDiffForTwoSnapshotsDifferingBySingleKey(
         newLeaderOM);
   }
@@ -586,7 +608,7 @@ public class TestSnapshotBackgroundServices {
                 SnapshotDiffReport.DiffType.CREATE, diffKey, null)),
         diff.getDiffList());
 
-    LOG.info("Snapshot difference: {]", diff.getDiffList());
+    LOG.info("Snapshot difference: {}", diff.getDiffList());
   }
 
   private static void checkIfCompactionBackupFilesWerePruned(
