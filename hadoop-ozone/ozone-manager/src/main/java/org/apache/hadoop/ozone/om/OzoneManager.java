@@ -599,7 +599,8 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
     // Validates the default server-side replication configs.
     this.defaultReplicationConfig = getDefaultReplicationConfig();
     InetSocketAddress omNodeRpcAddr = omNodeDetails.getRpcAddress();
-    omRpcAddressTxt = new Text(omNodeDetails.getRpcAddressString());
+    // Honor property 'hadoop.security.token.service.use_ip'
+    omRpcAddressTxt = new Text(SecurityUtil.buildTokenService(omNodeRpcAddr));
 
     scmContainerClient = getScmContainerClient(configuration);
     // verifies that the SCM info in the OM Version file is correct.
@@ -2941,6 +2942,31 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
   }
 
   @Override
+  public SnapshotInfo getSnapshotInfo(String volumeName, String bucketName,
+                                      String snapshotName) throws IOException {
+    metrics.incNumSnapshotInfos();
+    Map<String, String> auditMap = buildAuditMap(volumeName);
+    auditMap.put(OzoneConsts.BUCKET, bucketName);
+    try {
+      if (isAclEnabled) {
+        omMetadataReader.checkAcls(ResourceType.BUCKET, StoreType.OZONE,
+            ACLType.READ, volumeName, bucketName, null);
+      }
+      SnapshotInfo snapshotInfo =
+          metadataManager.getSnapshotInfo(volumeName, bucketName, snapshotName);
+
+      AUDIT.logReadSuccess(buildAuditMessageForSuccess(
+          OMAction.SNAPSHOT_INFO, auditMap));
+      return snapshotInfo;
+    } catch (Exception ex) {
+      metrics.incNumSnapshotInfoFails();
+      AUDIT.logReadFailure(buildAuditMessageForFailure(OMAction.SNAPSHOT_INFO,
+          auditMap, ex));
+      throw ex;
+    }
+  }
+
+  @Override
   public List<SnapshotInfo> listSnapshot(
       String volumeName, String bucketName, String snapshotPrefix,
       String prevSnapshot, int maxListResult) throws IOException {
@@ -4095,8 +4121,13 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
     OzoneManagerRatisServer.RaftServerStatus raftServerStatus =
         omRatisServer.checkLeaderStatus();
     RaftPeerId raftPeerId = omRatisServer.getRaftPeerId();
-    RaftPeerId raftLeaderId = omRatisServer.getRaftLeaderId();
-    String raftLeaderAddress = omRatisServer.getRaftLeaderAddress();
+    RaftPeerId raftLeaderId = null;
+    String raftLeaderAddress = null;
+    RaftPeer leader = omRatisServer.getLeader();
+    if (null != leader) {
+      raftLeaderId = leader.getId();
+      raftLeaderAddress = omRatisServer.getRaftLeaderAddress(leader);
+    }
 
     switch (raftServerStatus) {
     case LEADER_AND_READY: return;
