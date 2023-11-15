@@ -261,7 +261,7 @@ public class TestSnapshotBackgroundServices {
     // delete key a
     ozoneBucket.deleteKey(keyNameA);
 
-    LambdaTestUtils.await(10000, 1000,
+    LambdaTestUtils.await(8000, 500,
         () -> !isKeyInTable(keyA, omKeyInfoTable));
 
     // create snapshot c
@@ -279,7 +279,7 @@ public class TestSnapshotBackgroundServices {
     }
 
     // assert that key a is in snapshot c's deleted table
-    LambdaTestUtils.await(10000, 1000,
+    LambdaTestUtils.await(8000, 500,
         () -> isKeyInTable(keyA, snapC.getMetadataManager().getDeletedTable()));
 
     // create snapshot d
@@ -290,7 +290,7 @@ public class TestSnapshotBackgroundServices {
     client.getObjectStore()
         .deleteSnapshot(volumeName, bucketName, snapshotInfoC.getName());
 
-    LambdaTestUtils.await(30000, 1000, () ->
+    LambdaTestUtils.await(20000, 500, () ->
         !isKeyInTable(snapshotInfoC.getTableKey(),
             newLeaderOM.getMetadataManager().getSnapshotInfoTable()));
 
@@ -305,13 +305,13 @@ public class TestSnapshotBackgroundServices {
     }
 
     // wait until key a appears in deleted table of snapshot d
-    LambdaTestUtils.await(10000, 1000,
+    LambdaTestUtils.await(8000, 500,
         () -> isKeyInTable(keyA, snapD.getMetadataManager().getDeletedTable()));
 
     // Confirm entry for deleted snapshot removed from info table
     client.getObjectStore()
         .deleteSnapshot(volumeName, bucketName, newSnapshot.getName());
-    LambdaTestUtils.await(10000, 500,
+    LambdaTestUtils.await(8000, 500,
         () -> !isKeyInTable(newSnapshot.getTableKey(),
             newLeaderOM.getMetadataManager().getSnapshotInfoTable()));
 
@@ -619,7 +619,7 @@ public class TestSnapshotBackgroundServices {
       int newNumberOfSstFiles = Objects.requireNonNull(
           sstBackupDir.listFiles()).length;
       return numberOfSstFiles > newNumberOfSstFiles;
-    }, 1000, 10000);
+    }, 500, 8000);
   }
 
   private static File getSstBackupDir(OzoneManager ozoneManager) {
@@ -651,7 +651,7 @@ public class TestSnapshotBackgroundServices {
         Assertions.fail();
       }
       return snapshotInfo.isSstFiltered();
-    }, 1000, 10000);
+    }, 500, 8000);
   }
 
   private OzoneManager getNewLeader(OzoneManager leaderOM,
@@ -677,7 +677,7 @@ public class TestSnapshotBackgroundServices {
       } catch (OMNotLeaderException | OMLeaderNotReadyException e) {
         return false;
       }
-    }, 100, 10000);
+    }, 100, 8000);
   }
 
   private SnapshotDiffReportOzone getSnapDiffReport(String volume,
