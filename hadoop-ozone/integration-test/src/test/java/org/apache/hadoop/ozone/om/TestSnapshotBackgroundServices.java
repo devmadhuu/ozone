@@ -99,8 +99,8 @@ public class TestSnapshotBackgroundServices {
   private String volumeName;
   private String bucketName;
 
-  private static final long SNAPSHOT_THRESHOLD = 10;
-  private static final int LOG_PURGE_GAP = 10;
+  private static final long SNAPSHOT_THRESHOLD = 50;
+  private static final int LOG_PURGE_GAP = 50;
   // This test depends on direct RocksDB checks that are easier done with OBS
   // buckets.
   private static final BucketLayout TEST_BUCKET_LAYOUT =
