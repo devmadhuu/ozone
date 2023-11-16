@@ -198,7 +198,8 @@ public class TestSnapshotBackgroundServices {
    * Shutdown MiniDFSCluster.
    */
   @AfterEach
-  public void shutdown() {
+  public void shutdown(TestInfo testInfo) {
+    LOG.info("testInfo.getDisplayName(): {}", testInfo.getDisplayName());
     IOUtils.closeQuietly(client);
     if (cluster != null) {
       cluster.shutdown();
