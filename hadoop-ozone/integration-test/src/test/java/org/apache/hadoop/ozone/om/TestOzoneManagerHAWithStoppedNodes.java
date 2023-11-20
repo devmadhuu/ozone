@@ -238,7 +238,7 @@ public class TestOzoneManagerHAWithStoppedNodes extends TestOzoneManagerHA {
   }
 
   @Test
-  void testOMRatisSnapshot() throws Exception {
+  public void testOMRatisSnapshot() throws Exception {
     String userName = "user" + RandomStringUtils.randomNumeric(5);
     String adminName = "admin" + RandomStringUtils.randomNumeric(5);
     String volumeName = "volume" + RandomStringUtils.randomNumeric(5);
