@@ -50,6 +50,7 @@ import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.ConnectException;
@@ -75,7 +76,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class TestOzoneManagerHAWithStoppedNodes extends TestOzoneManagerHA {
-
+  private static org.slf4j.Logger LOG =
+      LoggerFactory.getLogger(TestOzoneManagerHAWithStoppedNodes.class);
   /**
    * After restarting OMs we need to wait
    * for a leader to be elected and ready.
@@ -239,6 +241,7 @@ public class TestOzoneManagerHAWithStoppedNodes extends TestOzoneManagerHA {
 
   @Test
   public void testOMRatisSnapshot() throws Exception {
+    LOG.info("starting testOMRatisSnapshot...");
     String userName = "user" + RandomStringUtils.randomNumeric(5);
     String adminName = "admin" + RandomStringUtils.randomNumeric(5);
     String volumeName = "volume" + RandomStringUtils.randomNumeric(5);
@@ -271,7 +274,7 @@ public class TestOzoneManagerHAWithStoppedNodes extends TestOzoneManagerHA {
       appliedLogIndex = ozoneManager.getOmRatisServer()
           .getLastAppliedTermIndex().getIndex();
     }
-
+    LOG.info("Ratis should have trigger snapshot now...");
     GenericTestUtils.waitFor(() -> {
       try {
         if (ozoneManager.getRatisSnapshotIndex() > 0) {
@@ -288,6 +291,9 @@ public class TestOzoneManagerHAWithStoppedNodes extends TestOzoneManagerHA {
     long smLastAppliedIndex =
         ozoneManager.getOmRatisServer().getLastAppliedTermIndex().getIndex();
     long ratisSnapshotIndex = ozoneManager.getRatisSnapshotIndex();
+    LOG.info(
+        "LastAppliedIndex on OM State Machine: {}, Ratis snapshot Index: {}",
+        smLastAppliedIndex, ratisSnapshotIndex);
     assertTrue(smLastAppliedIndex >= ratisSnapshotIndex,
         "LastAppliedIndex on OM State Machine ("
         + smLastAppliedIndex + ") is less than the saved snapshot index("
@@ -316,7 +322,7 @@ public class TestOzoneManagerHAWithStoppedNodes extends TestOzoneManagerHA {
     assertTrue(ratisSnapshotIndexNew > ratisSnapshotIndex,
         "Latest snapshot index must be greater than previous " +
             "snapshot indices");
-
+    LOG.info("ending testOMRatisSnapshot...");
   }
 
   @Test

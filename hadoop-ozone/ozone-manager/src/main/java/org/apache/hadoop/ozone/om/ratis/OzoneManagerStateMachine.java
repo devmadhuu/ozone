@@ -498,6 +498,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
         ozoneManager.getMetadataManager().getTransactionInfoTable();
     txnInfoTable.put(TRANSACTION_INFO_KEY, build);
     ozoneManager.getMetadataManager().getStore().flushDB();
+    LOG.info("ratis snapshot index: {}", ozoneManager.getRatisSnapshotIndex());
     return lastAppliedIndex;
   }
 
@@ -645,37 +646,37 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
           for (long epoch : flushedTrans) {
             ratisTransactionMap.put(epoch, applyTransactionMap.remove(epoch));
           }
-          if (LOG.isDebugEnabled()) {
-            if (!flushedTrans.isEmpty()) {
-              LOG.debug("ComputeAndUpdateLastAppliedIndex due to SM added " +
-                  "to map remaining {}", flushedTrans);
-            }
+          //if (LOG.isDebugEnabled()) {
+          if (!flushedTrans.isEmpty()) {
+            LOG.info("ComputeAndUpdateLastAppliedIndex due to SM added " +
+                "to map remaining {}", flushedTrans);
           }
+          //}
           break;
         }
       }
       if (appliedTerm != null) {
         updateLastAppliedTermIndex(appliedTerm, appliedIndex);
-        if (LOG.isDebugEnabled()) {
-          LOG.debug("ComputeAndUpdateLastAppliedIndex due to SM is {}",
-              getLastAppliedTermIndex());
-        }
+        //if (LOG.isDebugEnabled()) {
+        LOG.info("ComputeAndUpdateLastAppliedIndex due to SM is {}",
+            getLastAppliedTermIndex());
+        //}
       }
     } else {
       if (getLastAppliedTermIndex().getIndex() + 1 == lastFlushedIndex) {
         updateLastAppliedTermIndex(currentTerm, lastFlushedIndex);
-        if (LOG.isDebugEnabled()) {
-          LOG.debug("ComputeAndUpdateLastAppliedIndex due to notifyIndex {}",
-              getLastAppliedTermIndex());
-        }
+        //if (LOG.isDebugEnabled()) {
+        LOG.info("ComputeAndUpdateLastAppliedIndex due to notifyIndex {}",
+            getLastAppliedTermIndex());
+        //}
       } else {
         ratisTransactionMap.put(lastFlushedIndex, currentTerm);
-        if (LOG.isDebugEnabled()) {
-          LOG.debug("ComputeAndUpdateLastAppliedIndex due to notifyIndex " +
-              "added to map. Passed Term {} index {}, where as lastApplied " +
-              "Index {}", currentTerm, lastFlushedIndex,
-              getLastAppliedTermIndex());
-        }
+        //if (LOG.isDebugEnabled()) {
+        LOG.info("ComputeAndUpdateLastAppliedIndex due to notifyIndex " +
+                "added to map. Passed Term {} index {}, where as lastApplied " +
+                "Index {}", currentTerm, lastFlushedIndex,
+            getLastAppliedTermIndex());
+        //}
       }
     }
   }
