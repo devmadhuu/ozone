@@ -242,6 +242,8 @@ public class TestOzoneManagerHAWithStoppedNodes extends TestOzoneManagerHA {
   @Test
   public void testOMRatisSnapshot() throws Exception {
     LOG.info("starting testOMRatisSnapshot...");
+    LOG.info("Leader OM at start: {}",
+        getCluster().getOMLeader().getOMNodeId());
     String userName = "user" + RandomStringUtils.randomNumeric(5);
     String adminName = "admin" + RandomStringUtils.randomNumeric(5);
     String volumeName = "volume" + RandomStringUtils.randomNumeric(5);
@@ -262,7 +264,7 @@ public class TestOzoneManagerHAWithStoppedNodes extends TestOzoneManagerHA {
     String leaderOMNodeId = OmFailoverProxyUtil
         .getFailoverProxyProvider(objectStore.getClientProxy())
         .getCurrentProxyOMNodeId();
-
+    LOG.info("Leader OM: {}", leaderOMNodeId);
     OzoneManager ozoneManager = getCluster().getOzoneManager(leaderOMNodeId);
 
     // Send commands to ratis to increase the log index so that ratis
