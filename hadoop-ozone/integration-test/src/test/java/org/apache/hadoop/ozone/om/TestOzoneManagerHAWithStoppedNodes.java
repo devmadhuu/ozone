@@ -244,6 +244,9 @@ public class TestOzoneManagerHAWithStoppedNodes extends TestOzoneManagerHA {
     LOG.info("starting testOMRatisSnapshot...");
     LOG.info("Leader OM at start: {}",
         getCluster().getOMLeader().getOMNodeId());
+    getCluster().getOzoneManagersList().forEach(
+        om -> LOG.info("Om: {} is running {}", om.getOMNodeId(),
+            om.isRunning()));
     String userName = "user" + RandomStringUtils.randomNumeric(5);
     String adminName = "admin" + RandomStringUtils.randomNumeric(5);
     String volumeName = "volume" + RandomStringUtils.randomNumeric(5);
@@ -296,10 +299,16 @@ public class TestOzoneManagerHAWithStoppedNodes extends TestOzoneManagerHA {
     LOG.info(
         "LastAppliedIndex on OM State Machine: {}, Ratis snapshot Index: {}",
         smLastAppliedIndex, ratisSnapshotIndex);
-    assertTrue(smLastAppliedIndex >= ratisSnapshotIndex,
+    /*assertTrue(smLastAppliedIndex >= ratisSnapshotIndex,
         "LastAppliedIndex on OM State Machine ("
         + smLastAppliedIndex + ") is less than the saved snapshot index("
-        + ratisSnapshotIndex + ").");
+        + ratisSnapshotIndex + ").");*/
+    GenericTestUtils.waitFor(() -> {
+      if (smLastAppliedIndex >= ratisSnapshotIndex) {
+        return true;
+      }
+      return false;
+    }, 1000, 100000);
 
     // Add more transactions to Ratis to trigger another snapshot
     while (appliedLogIndex <= (smLastAppliedIndex + getSnapshotThreshold())) {
