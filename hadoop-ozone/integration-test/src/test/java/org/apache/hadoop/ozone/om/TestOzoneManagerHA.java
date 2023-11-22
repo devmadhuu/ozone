@@ -91,6 +91,7 @@ public abstract class TestOzoneManagerHA {
   private static final int OZONE_CLIENT_FAILOVER_MAX_ATTEMPTS = 5;
   private static final int IPC_CLIENT_CONNECT_MAX_RETRIES = 4;
   private static final long SNAPSHOT_THRESHOLD = 50;
+  private static final long UNFLUSHED_TRANSACTION_MAX_COUNT = 50;
   private static final Duration RETRY_CACHE_DURATION = Duration.ofSeconds(30);
   private static OzoneClient client;
 
@@ -184,6 +185,9 @@ public abstract class TestOzoneManagerHA {
     // config for key deleting service.
     conf.set(OZONE_BLOCK_DELETING_SERVICE_INTERVAL, "10s");
     conf.set(OZONE_KEY_DELETING_LIMIT_PER_TASK, "2");
+
+    conf.setLong(OMConfigKeys.OZONE_OM_UNFLUSHED_TRANSACTION_MAX_COUNT,
+        UNFLUSHED_TRANSACTION_MAX_COUNT);
 
     clusterBuilder = MiniOzoneCluster.newOMHABuilder(conf)
         .setClusterId(clusterId)
