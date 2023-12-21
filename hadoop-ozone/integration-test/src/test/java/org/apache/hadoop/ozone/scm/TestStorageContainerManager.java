@@ -338,6 +338,8 @@ public class TestStorageContainerManager {
             cluster.getStorageContainerManager().getScmHAManager()
                 .asSCMHADBTransactionBuffer().flush();
           }
+          LOG.info("delLog.getNumOfValidTransactions(): {}",
+              delLog.getNumOfValidTransactions());
           return delLog.getNumOfValidTransactions() == 0;
         } catch (IOException e) {
           return false;
