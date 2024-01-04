@@ -298,6 +298,8 @@ public class TestStorageContainerManager {
         + ".client.request.write.timeout", 30, TimeUnit.SECONDS);
     conf.setTimeDuration(RatisHelper.HDDS_DATANODE_RATIS_PREFIX_KEY
         + ".client.request.watch.timeout", 30, TimeUnit.SECONDS);
+    conf.setInt("hdds.datanode.block.delete.threads.max", 5);
+    conf.setInt("hdds.datanode.block.delete.queue.limit", 32);
     conf.setTimeDuration(HDDS_HEARTBEAT_INTERVAL, 50,
         TimeUnit.MILLISECONDS);
     conf.setTimeDuration(HDDS_CONTAINER_REPORT_INTERVAL, 200,
@@ -331,7 +333,7 @@ public class TestStorageContainerManager {
         OzoneTestUtils.closeContainers(keyInfo.getKeyLocationVersions(),
             cluster.getStorageContainerManager());
       }
-
+      Thread.sleep(3000);
       Map<Long, List<Long>> containerBlocks = createDeleteTXLog(
           cluster.getStorageContainerManager(),
           delLog, keyLocations, helper);
@@ -356,7 +358,7 @@ public class TestStorageContainerManager {
         } catch (IOException e) {
           return false;
         }
-      }, 1000, 25000);
+      }, 1000, 22000);
       Assert.assertTrue(helper.verifyBlocksWithTxnTable(containerBlocks));
       // Continue the work, add some TXs that with known container names,
       // but unknown block IDs.
