@@ -156,7 +156,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.slf4j.event.Level.DEBUG;
 
 import org.apache.ozone.test.tag.Unhealthy;
 import org.junit.jupiter.api.MethodOrderer;
@@ -165,6 +164,8 @@ import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * This is an abstract class to test all the public facing APIs of Ozone
@@ -175,7 +176,8 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @TestMethodOrder(MethodOrderer.MethodName.class)
 public abstract class TestOzoneRpcClientAbstract {
-
+  public static final Logger LOG =
+      LoggerFactory.getLogger(TestOzoneRpcClientAbstract.class);
   private static MiniOzoneCluster cluster = null;
   private static OzoneClient ozClient = null;
   private static ObjectStore store = null;
@@ -4226,6 +4228,9 @@ public abstract class TestOzoneRpcClientAbstract {
     int volABucketASnapshotCount = 0;
     while (snapshotIter.hasNext()) {
       OzoneSnapshot snapshot = snapshotIter.next();
+      LOG.info("listed snapshot: {} in volume: {} and bucket: {}",
+          snapshot.getName(), snapshot.getVolumeName(),
+          snapshot.getBucketName());
       volABucketASnapshotCount++;
     }
     assertEquals(20, volABucketASnapshotCount);
