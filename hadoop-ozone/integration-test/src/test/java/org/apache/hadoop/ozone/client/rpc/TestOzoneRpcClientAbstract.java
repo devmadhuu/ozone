@@ -166,6 +166,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.event.Level;
 
 /**
  * This is an abstract class to test all the public facing APIs of Ozone
@@ -1996,7 +1997,7 @@ public abstract class TestOzoneRpcClientAbstract {
 
     // Try reading keyName2
     try {
-      GenericTestUtils.setLogLevel(XceiverClientGrpc.getLogger(), DEBUG);
+      GenericTestUtils.setLogLevel(XceiverClientGrpc.getLogger(), Level.DEBUG);
       try (OzoneInputStream is = bucket.readKey(keyName2)) {
         byte[] content = new byte[100];
         is.read(content);
