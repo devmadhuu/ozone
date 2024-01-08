@@ -303,10 +303,11 @@ public class ListIterator {
         for (Table table : tables) {
           CacheIter cacheIter = new CacheIter<>(iteratorId, table.getName(),
               table.cacheIterator(), startKey, prefixKey);
+          Predicate<String> keyExistsInCacheFn = cacheIter::isKeyExistInCache;
           iterators.add(cacheIter);
           iteratorId++;
           iterators.add(new DbTableIter<>(iteratorId, table, prefixKey,
-              startKey, cacheIter::isKeyExistInCache));
+              startKey, keyExistsInCacheFn));
           iteratorId++;
         }
       } finally {
