@@ -680,8 +680,15 @@ public class ObjectStore {
      */
     private List<OzoneSnapshot> getNextListOfSnapshots(String prevSnapshot)
         throws IOException {
-      return proxy.listSnapshot(volumeName, bucketName, snapshotPrefix,
-          prevSnapshot, listCacheSize);
+      List<OzoneSnapshot> ozoneSnapshots =
+          proxy.listSnapshot(volumeName, bucketName, snapshotPrefix,
+              prevSnapshot, listCacheSize);
+      ozoneSnapshots.forEach(snapshot -> {
+        LOG.info("listed snapshot: {} in volume: {} and bucket: {}",
+            snapshot.getName(), snapshot.getVolumeName(),
+            snapshot.getBucketName());
+      });
+      return ozoneSnapshots;
     }
   }
 
