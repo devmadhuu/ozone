@@ -199,6 +199,18 @@ public class MutableVolumeSet implements VolumeSet {
     if (volumeMap.isEmpty()) {
       throw new DiskOutOfSpaceException("No storage locations configured");
     }
+
+    // Validate volume configuration after volumes are initialized
+    try {
+      org.apache.hadoop.ozone.container.common.config.DatanodeVolumeConfigValidator
+          volumeValidator =
+          new org.apache.hadoop.ozone.container.common.config.DatanodeVolumeConfigValidator(
+              conf);
+      volumeValidator.validateVolumes(volumeMap);
+    } catch (org.apache.hadoop.hdds.conf.ConfigurationException e) {
+      LOG.error("Volume configuration validation failed", e);
+      throw new IOException("Invalid volume configuration", e);
+    }
   }
 
   /**

@@ -1,0 +1,59 @@
+{
+  "component": "OM",
+  "rules": [
+    {
+      "id": "OM-HANDLER-001",
+      "name": "OM Handler Count",
+      "configKey": "ozone.om.handler.count.key",
+      "severity": "WARNING",
+      "validation": {
+        "type": "RANGE",
+        "min": 20,
+        "max": 100
+      },
+      "message": "OM handler count outside recommended range",
+      "recommendation": "Set ozone.om.handler.count.key between 20-100 based on client load",
+      "impact": "Too few handlers cause client request queuing and timeouts"
+    },
+    {
+      "id": "OM-RATIS-001",
+      "name": "Ratis Request Timeout",
+      "configKey": "ozone.om.ratis.request.timeout",
+      "severity": "WARNING",
+      "validation": {
+        "type": "MIN_VALUE",
+        "min": "60s"
+      },
+      "message": "Ratis request timeout too short",
+      "recommendation": "Set ozone.om.ratis.request.timeout to at least 60s",
+      "impact": "Short timeouts cause frequent request failures during leader election"
+    },
+    {
+      "id": "OM-SAFE-001",
+      "name": "Safe Mode Threshold",
+      "configKey": "ozone.om.safemode.min.datanodes",
+      "severity": "ERROR",
+      "validation": {
+        "type": "RANGE",
+        "min": 1,
+        "context": "cluster_datanodes"
+      },
+      "message": "Safe mode threshold may prevent OM from leaving safe mode",
+      "recommendation": "Set ozone.om.safemode.min.datanodes to reasonable value based on cluster size",
+      "impact": "Too high: OM stuck in safe mode. Too low: premature exit risks"
+    },
+    {
+      "id": "OM-VOL-001",
+      "name": "Volume List Cache Size",
+      "configKey": "ozone.om.volume.listall.allowed",
+      "severity": "WARNING",
+      "validation": {
+        "type": "BOOLEAN",
+        "recommended": false
+      },
+      "message": "Listing all volumes allowed - can cause performance issues",
+      "recommendation": "Set ozone.om.volume.listall.allowed to false for large clusters",
+      "impact": "Allowing list all volumes can overwhelm OM with large numbers of volumes"
+    }
+  ]
+}

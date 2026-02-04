@@ -1,0 +1,75 @@
+{
+  "component": "SCM",
+  "rules": [
+    {
+      "id": "SCM-SAFE-001",
+      "name": "Safe Mode Threshold",
+      "configKey": "hdds.scm.safemode.threshold.pct",
+      "severity": "CRITICAL",
+      "validation": {
+        "type": "RANGE",
+        "min": 0.95,
+        "max": 0.999
+      },
+      "message": "Safe mode threshold outside safe range",
+      "recommendation": "Set hdds.scm.safemode.threshold.pct to 0.99",
+      "impact": "Too low: premature safe mode exit. Too high: SCM stuck in safe mode"
+    },
+    {
+      "id": "SCM-PIPE-001",
+      "name": "Pipeline Creation Interval",
+      "configKey": "ozone.scm.pipeline.creation.interval",
+      "severity": "WARNING",
+      "validation": {
+        "type": "RANGE",
+        "min": "60s",
+        "max": "300s"
+      },
+      "message": "Pipeline creation interval outside recommended range",
+      "recommendation": "Set ozone.scm.pipeline.creation.interval between 60s-180s",
+      "impact": "Too short: excessive pipeline churn. Too long: slow pipeline recovery"
+    },
+    {
+      "id": "SCM-HANDLER-001",
+      "name": "SCM Handler Count",
+      "configKey": "scm.handler.count.key",
+      "severity": "WARNING",
+      "validation": {
+        "type": "RANGE",
+        "min": 20,
+        "max": 100
+      },
+      "message": "SCM handler count outside recommended range",
+      "recommendation": "Set scm.handler.count.key between 20-100 based on cluster size",
+      "impact": "Too few handlers cause datanode heartbeat delays"
+    },
+    {
+      "id": "SCM-CONT-001",
+      "name": "Container Report Interval",
+      "configKey": "hdds.container.report.interval",
+      "severity": "WARNING",
+      "validation": {
+        "type": "RANGE",
+        "min": "60s",
+        "max": "600s"
+      },
+      "message": "Container report interval outside recommended range",
+      "recommendation": "Set hdds.container.report.interval to 300s (5 minutes)",
+      "impact": "Too short: excessive SCM load. Too long: slow container state updates"
+    },
+    {
+      "id": "SCM-CLOSE-001",
+      "name": "Container Close Threshold",
+      "configKey": "ozone.scm.container.size",
+      "severity": "INFO",
+      "validation": {
+        "type": "RANGE",
+        "min": "1GB",
+        "max": "5GB"
+      },
+      "message": "Container size outside typical range",
+      "recommendation": "Use 5GB for most workloads, 1GB for small files",
+      "impact": "Affects replication overhead and storage efficiency"
+    }
+  ]
+}

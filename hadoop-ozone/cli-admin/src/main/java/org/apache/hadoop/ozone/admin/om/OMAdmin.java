@@ -63,7 +63,8 @@ import picocli.CommandLine;
         TransferOmLeaderSubCommand.class,
         FetchKeySubCommand.class,
         LeaseSubCommand.class,
-        SnapshotSubCommand.class
+        SnapshotSubCommand.class,
+        ConfigAnalyzerSubcommand.class
     })
 @MetaInfServices(AdminSubcommand.class)
 public class OMAdmin implements AdminSubcommand {

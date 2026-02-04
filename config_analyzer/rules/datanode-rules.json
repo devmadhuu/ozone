@@ -1,0 +1,130 @@
+{
+  "component": "DATANODE",
+  "rules": [
+    {
+      "id": "DN-STOR-001",
+      "name": "Volume Reserved Space",
+      "configKey": "hdds.datanode.dir.du.reserved",
+      "severity": "WARNING",
+      "validation": {
+        "type": "RANGE",
+        "min": "10%",
+        "context": "volume_capacity"
+      },
+      "message": "Reserved space should be at least 10% of volume capacity",
+      "recommendation": "Set hdds.datanode.dir.du.reserved to at least 10% of disk capacity",
+      "impact": "Insufficient reserved space can lead to disk full errors"
+    },
+    {
+      "id": "DN-HANDLER-001",
+      "name": "Handler Count Range",
+      "configKey": "hdds.datanode.handler.count",
+      "severity": "WARNING",
+      "validation": {
+        "type": "RANGE",
+        "min": 10,
+        "max": 100
+      },
+      "message": "Handler count should be between 10 and 100",
+      "recommendation": "Set hdds.datanode.handler.count between 10-100 based on workload",
+      "impact": "Too few handlers cause request queuing. Too many cause context switching"
+    },
+    {
+      "id": "DN-CACHE-001",
+      "name": "Write Cache Size",
+      "configKey": "dfs.container.chunk.write.cache.size",
+      "severity": "CRITICAL",
+      "validation": {
+        "type": "MIN_VALUE",
+        "min": "256MB"
+      },
+      "message": "Write cache size too small - risk of OOM",
+      "recommendation": "Increase dfs.container.chunk.write.cache.size to at least 512MB",
+      "impact": "Small cache with many handlers causes memory pressure and OOM"
+    },
+    {
+      "id": "DN-HB-001",
+      "name": "Heartbeat Configuration",
+      "configKey": "hdds.heartbeat.interval",
+      "severity": "ERROR",
+      "validation": {
+        "type": "RELATIONSHIP",
+        "rule": "heartbeat_timeout >= heartbeat_interval * 3",
+        "requiredConfigs": ["hdds.heartbeat.timeout"]
+      },
+      "message": "Heartbeat timeout too short relative to interval",
+      "recommendation": "Increase hdds.heartbeat.timeout to at least 3x the heartbeat interval",
+      "impact": "Short timeout causes false node failure detection"
+    },
+    {
+      "id": "DN-PERF-001",
+      "name": "Container Delete Threads",
+      "configKey": "hdds.datanode.container.delete.threads.max",
+      "severity": "WARNING",
+      "validation": {
+        "type": "RANGE",
+        "min": 2,
+        "max": 10
+      },
+      "message": "Container delete threads outside recommended range",
+      "recommendation": "Set hdds.datanode.container.delete.threads.max to 5 for balanced performance",
+      "impact": "Too few threads: slow deletion. Too many threads: resource contention"
+    },
+    {
+      "id": "DN-IO-001",
+      "name": "Chunk Size Configuration",
+      "configKey": "ozone.chunk.size",
+      "severity": "WARNING",
+      "validation": {
+        "type": "RANGE",
+        "min": "1MB",
+        "max": "16MB"
+      },
+      "message": "Chunk size outside optimal range",
+      "recommendation": "Set ozone.chunk.size to 4MB for best performance",
+      "impact": "Small chunks increase metadata overhead. Large chunks cause memory pressure"
+    },
+    {
+      "id": "DN-STOR-002",
+      "name": "Reserved Space Percentage Range",
+      "configKey": "hdds.datanode.dir.du.reserved.percent",
+      "severity": "WARNING",
+      "validation": {
+        "type": "PERCENTAGE_RANGE",
+        "min": 0.05,
+        "max": 0.20
+      },
+      "message": "Reserved space percentage should be between 5% and 20%",
+      "recommendation": "Set hdds.datanode.dir.du.reserved.percent between 0.05 (5%) and 0.20 (20%)",
+      "impact": "Too low: Risk of disk full. Too high: Wasted capacity"
+    },
+    {
+      "id": "DN-STOR-003",
+      "name": "Reserved Space Not Exceeding Total Capacity",
+      "configKey": "hdds.datanode.dir.du.reserved",
+      "severity": "CRITICAL",
+      "validation": {
+        "type": "CAPACITY_CHECK",
+        "rule": "reserved_bytes <= total_capacity",
+        "requiresRuntime": true
+      },
+      "message": "Reserved space exceeds total DataNode capacity",
+      "recommendation": "Reduce hdds.datanode.dir.du.reserved to a value less than total capacity (sum of all volumes)",
+      "impact": "DataNode will fail to start or all volumes become read-only"
+    },
+    {
+      "id": "DN-STOR-004",
+      "name": "Reserved Space Within 30% Limit",
+      "configKey": "hdds.datanode.dir.du.reserved",
+      "severity": "WARNING",
+      "validation": {
+        "type": "CAPACITY_CHECK",
+        "rule": "reserved_bytes <= total_capacity * 0.30",
+        "requiresRuntime": true
+      },
+      "message": "Reserved space exceeds 30% of total DataNode capacity",
+      "recommendation": "Reduce hdds.datanode.dir.du.reserved to less than 30% of total capacity for better utilization",
+      "impact": "Excessive reservation reduces usable storage capacity"
+    }
+  ]
+}

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.ozone.admin.scm;
+package org.apache.hadoop.ozone.admin.recon;
 
 import org.apache.hadoop.hdds.cli.AdminSubcommand;
 import org.apache.hadoop.hdds.cli.HddsVersionProvider;
@@ -24,25 +24,18 @@ import org.kohsuke.MetaInfServices;
 import picocli.CommandLine;
 
 /**
- * Subcommand for admin operations related to SCM.
+ * Subcommand for admin operations related to Recon.
  */
 @CommandLine.Command(
-    name = "scm",
-    description = "Ozone Storage Container Manager specific admin operations",
+    name = "recon",
+    description = "Ozone Recon specific admin operations",
     mixinStandardHelpOptions = true,
     versionProvider = HddsVersionProvider.class,
     subcommands = {
-        GetScmRatisRolesSubcommand.class,
-        FinalizeScmUpgradeSubcommand.class,
-        FinalizationScmStatusSubcommand.class,
-        TransferScmLeaderSubCommand.class,
-        DecommissionScmSubcommand.class,
-        RotateKeySubCommand.class,
-        DeletedBlocksTxnCommands.class,
         ConfigAnalyzerSubcommand.class
     })
 @MetaInfServices(AdminSubcommand.class)
-public class ScmAdmin implements AdminSubcommand {
+public class ReconAdmin implements AdminSubcommand {
 
   @CommandLine.ParentCommand
   private OzoneAdmin parent;

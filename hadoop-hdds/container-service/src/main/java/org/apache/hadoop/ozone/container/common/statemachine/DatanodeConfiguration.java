@@ -66,6 +66,14 @@ public class DatanodeConfiguration extends ReconfigurableConfig {
   // Ex: If volume has 1000GB and minFreeSpace is configured as 10GB,
   // In this case when availableSpace is 10GB or below, volume is assumed as full
   public static final String HDDS_DATANODE_VOLUME_MIN_FREE_SPACE = "hdds.datanode.volume.min.free.space";
+
+  // Configuration validation at startup
+  public static final String HDDS_DATANODE_STARTUP_CONFIG_VALIDATION_ENABLED =
+      "hdds.datanode.startup.config.validation.enabled";
+  public static final String HDDS_DATANODE_STARTUP_VALIDATION_MODE =
+      "hdds.datanode.startup.validation.mode";
+  public static final String HDDS_DATANODE_STARTUP_IGNORE_CONFIG_ERRORS =
+      "hdds.datanode.startup.ignore.config.errors";
   public static final String HDDS_DATANODE_VOLUME_MIN_FREE_SPACE_DEFAULT = "20GB";
   // Minimum percent of space should be left on volume.
   // Ex: If volume has 1000GB and minFreeSpacePercent is configured as 2%,
@@ -588,6 +596,7 @@ public class DatanodeConfiguration extends ReconfigurableConfig {
   @SuppressWarnings("checkstyle:MethodLength")
   @PostConstruct
   public void validate() {
+    LOG.error("Validate called in DatanodeConfiguration....");
     if (containerDeleteThreads < 1) {
       LOG.warn(CONTAINER_DELETE_THREADS_MAX_KEY + " must be greater than zero" +
               " and was set to {}. Defaulting to {}",

@@ -1,0 +1,61 @@
+{
+  "component": "RECON",
+  "rules": [
+    {
+      "id": "RECON-SYNC-001",
+      "name": "OM Snapshot Sync Interval",
+      "configKey": "ozone.recon.om.snapshot.task.interval",
+      "severity": "WARNING",
+      "validation": {
+        "type": "RANGE",
+        "min": "1m",
+        "max": "30m"
+      },
+      "message": "OM snapshot sync interval outside recommended range",
+      "recommendation": "Set ozone.recon.om.snapshot.task.interval to 10m for balanced freshness",
+      "impact": "Too short: excessive load on OM. Too long: stale Recon data"
+    },
+    {
+      "id": "RECON-DB-001",
+      "name": "Database Connection Pool",
+      "configKey": "ozone.recon.sql.db.connection.pool.size",
+      "severity": "WARNING",
+      "validation": {
+        "type": "RANGE",
+        "min": 10,
+        "max": 50
+      },
+      "message": "Database connection pool size outside recommended range",
+      "recommendation": "Set ozone.recon.sql.db.connection.pool.size to 20",
+      "impact": "Too few: slow queries. Too many: resource waste"
+    },
+    {
+      "id": "RECON-API-001",
+      "name": "HTTP Server Thread Count",
+      "configKey": "ozone.recon.http-server.threads",
+      "severity": "WARNING",
+      "validation": {
+        "type": "RANGE",
+        "min": 10,
+        "max": 100
+      },
+      "message": "HTTP server thread count outside recommended range",
+      "recommendation": "Set ozone.recon.http-server.threads between 20-50",
+      "impact": "Too few: slow API responses. Too many: resource contention"
+    },
+    {
+      "id": "RECON-TASK-001",
+      "name": "Container Health Task Interval",
+      "configKey": "ozone.recon.task.container.health.interval",
+      "severity": "INFO",
+      "validation": {
+        "type": "RANGE",
+        "min": "1m",
+        "max": "10m"
+      },
+      "message": "Container health check interval outside typical range",
+      "recommendation": "Set ozone.recon.task.container.health.interval to 5m",
+      "impact": "Affects how quickly Recon detects unhealthy containers"
+    }
+  ]
+}

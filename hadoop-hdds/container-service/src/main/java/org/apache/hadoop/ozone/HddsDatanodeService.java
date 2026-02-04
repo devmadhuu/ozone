@@ -61,6 +61,7 @@ import org.apache.hadoop.hdds.HddsConfigKeys;
 import org.apache.hadoop.hdds.HddsUtils;
 import org.apache.hadoop.hdds.cli.GenericCli;
 import org.apache.hadoop.hdds.cli.HddsVersionProvider;
+import org.apache.hadoop.hdds.conf.ConfigurationException;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.conf.ReconfigurationHandler;
@@ -81,6 +82,7 @@ import org.apache.hadoop.hdds.utils.HddsServerUtil;
 import org.apache.hadoop.hdds.utils.HddsVersionInfo;
 import org.apache.hadoop.metrics2.util.MBeans;
 import org.apache.hadoop.ozone.container.common.DatanodeLayoutStorage;
+import org.apache.hadoop.ozone.container.common.config.DatanodeConfigStartupValidator;
 import org.apache.hadoop.ozone.container.common.helpers.ContainerUtils;
 import org.apache.hadoop.ozone.container.common.statemachine.DatanodeStateMachine;
 import org.apache.hadoop.ozone.container.common.statemachine.DatanodeStateMachine.DatanodeStates;
@@ -237,6 +239,18 @@ public class HddsDatanodeService extends GenericCli implements Callable<Void>, S
 
     OzoneConfiguration.activate();
     HddsServerUtil.initializeMetrics(conf, "HddsDatanode");
+
+    // Validate configuration at startup
+    try {
+      DatanodeConfigStartupValidator validator =
+          new DatanodeConfigStartupValidator(conf);
+      validator.validateOrAbort();
+      LOG.info("DataNode configuration validation completed successfully. " +
+          "Mode: {}", validator.getMode());
+    } catch (ConfigurationException e) {
+      LOG.error("DataNode startup aborted due to configuration violations", e);
+      throw new RuntimeException("Configuration validation failed", e);
+    }
     try {
       String hostname = HddsUtils.getHostName(conf);
       datanodeDetails = initializeDatanodeDetails();

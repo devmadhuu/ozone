@@ -54,6 +54,8 @@ OZONE-SITE.XML_dfs.container.ratis.datastream.enabled=true
 OZONE-SITE.XML_ozone.http.basedir=/tmp/ozone_http
 OZONE-SITE.XML_hdds.container.balancer.balancing.iteration.interval=25s
 OZONE-SITE.XML_hdds.container.balancer.trigger.du.before.move.enable=false
+OZONE-SITE.XML_hdds.datanode.dir=/data/vol1,/data/vol2,/data/vol3
+OZONE-SITE.XML_hdds.datanode.dir.du.reserved=/data/vol1:900MB,/data/vol2:400MB,/data/vol3:700MB
 OZONE_CONF_DIR=/etc/hadoop
 OZONE_LOG_DIR=/var/log/hadoop
 
