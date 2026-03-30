@@ -53,6 +53,7 @@ function ozone_usage
   ozone_add_subcommand "httpfs" daemon "run the HTTPFS compatible REST gateway"
   ozone_add_subcommand "csi" daemon "run the standalone CSI daemon"
   ozone_add_subcommand "recon" daemon "run the Recon service"
+  ozone_add_subcommand "recon-container" client "Recon container admin tool (export keys, etc.)"
   ozone_add_subcommand "sh" client "command line interface for object store operations"
   ozone_add_subcommand "s3" client "command line interface for s3 related operations"
   ozone_add_subcommand "tenant" client "command line interface for multi-tenant related operations"
@@ -194,6 +195,10 @@ function ozonecmd_case
       OZONE_SUBCMD_SUPPORTDAEMONIZATION="true"
       OZONE_CLASSNAME='org.apache.hadoop.ozone.recon.ReconServer'
       OZONE_RECON_OPTS="${OZONE_RECON_OPTS} ${RATIS_OPTS} -Dlog4j.configuration=file:${OZONE_CONF_DIR}/log4j.properties ${OZONE_MODULE_ACCESS_ARGS}"
+      OZONE_RUN_ARTIFACT_NAME="ozone-recon"
+    ;;
+    recon-container)
+      OZONE_CLASSNAME='org.apache.hadoop.ozone.recon.cli.ReconContainerMain'
       OZONE_RUN_ARTIFACT_NAME="ozone-recon"
     ;;
     fs)

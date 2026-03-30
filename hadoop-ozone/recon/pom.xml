@@ -523,4 +523,67 @@
       </plugin>
     </plugins>
   </build>
+
+  <!--
+    Profile: tool-jar
+    Builds a thin, self-contained CLI jar containing only the Container Keys
+    Export tool classes.  All Hadoop/Ozone/RocksDB runtime dependencies are
+    expected to be provided by the existing Ozone installation on the target
+    node (SCM node, gateway, etc.).
+
+    Build command (from repo root):
+      mvn package -DskipTests -DskipRecon \
+          -pl hadoop-ozone/recon -am \
+          -P tool-jar
+
+    Output: hadoop-ozone/recon/target/ozone-recon-container-tool-<version>.jar
+  -->
+  <profiles>
+    <profile>
+      <id>tool-jar</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-jar-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>recon-container-tool-jar</id>
+                <goals>
+                  <goal>jar</goal>
+                </goals>
+                <phase>package</phase>
+                <configuration>
+                  <!--
+                    Classifier separates this artifact from the regular
+                    ozone-recon.jar so both can coexist in the local repo.
+                  -->
+                  <classifier>container-tool</classifier>
+                  <!--
+                    Include only the new CLI + tool classes.
+                    All Recon/Hadoop/RocksDB dependencies come from the
+                    existing Ozone installation on the target node.
+                  -->
+                  <includes>
+                    <include>org/apache/hadoop/ozone/recon/cli/**</include>
+                    <include>org/apache/hadoop/ozone/recon/tools/**</include>
+                  </includes>
+                  <archive>
+                    <manifest>
+                      <mainClass>org.apache.hadoop.ozone.recon.cli.ReconContainerMain</mainClass>
+                    </manifest>
+                    <manifestEntries>
+                      <Built-By>Apache Ozone</Built-By>
+                      <Tool-Description>Recon Container Keys Export CLI</Tool-Description>
+                    </manifestEntries>
+                  </archive>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
 </project>
