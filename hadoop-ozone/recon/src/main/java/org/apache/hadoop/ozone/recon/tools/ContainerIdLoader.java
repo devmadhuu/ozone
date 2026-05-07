@@ -32,8 +32,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Phase 0: Loads container IDs matching a given lifecycle state directly from
- * a SCM-compatible DB file.  Returns a sorted {@code long[]} of container IDs.
+ * Phase 0: Loads container IDs matching the requested container metadata
+ * filters directly from a SCM-compatible DB file. Returns a sorted
+ * {@code long[]} of container IDs.
  *
  * <p>Accepts either of the following DB files — both share the same
  * {@code containers} column family schema ({@code ContainerID → ContainerInfo}
@@ -66,8 +67,8 @@ public final class ContainerIdLoader {
 
   /**
    * Scans the {@code containers} column family of the supplied DB store and
-   * returns a sorted array of all container IDs whose lifecycle state matches
-   * {@code state}.
+   * returns a sorted array of all container IDs whose metadata matches the
+   * requested filters.
    *
    * <p>The DB store must be backed by either {@code scm.db} or
    * {@code recon-scm.db} — both contain the containers table defined in
@@ -77,12 +78,16 @@ public final class ContainerIdLoader {
    *
    * @param scmDbStore open SCM-compatible DB store (read-only; caller owns
    *                   lifecycle)
-   * @param state      the desired {@link HddsProtos.LifeCycleState}
+   * @param state      desired {@link HddsProtos.LifeCycleState}, or null to
+   *                   match all states
+   * @param negativeSizeOnly when true, only include containers whose
+   *                         {@code usedBytes} is negative
    * @return sorted {@code long[]} of matching container IDs
    * @throws IOException if the DB read fails
    */
   public static long[] load(DBStore scmDbStore,
-      HddsProtos.LifeCycleState state) throws IOException {
+      HddsProtos.LifeCycleState state, boolean negativeSizeOnly)
+      throws IOException {
 
     Table<ContainerID, ContainerInfo> containerTable =
         SCMDBDefinition.CONTAINERS.getTable(scmDbStore);
@@ -96,14 +101,19 @@ public final class ContainerIdLoader {
       iter.seekToFirst();
       while (iter.hasNext()) {
         Table.KeyValue<ContainerID, ContainerInfo> kv = iter.next();
-        if (kv.getValue().getState() == state) {
+        ContainerInfo containerInfo = kv.getValue();
+        boolean stateMatches = state == null || containerInfo.getState() == state;
+        boolean sizeMatches = !negativeSizeOnly
+            || containerInfo.getUsedBytes() < 0;
+        if (stateMatches && sizeMatches) {
           ids.add(kv.getKey().getId());
         }
       }
     }
 
-    LOG.info("Phase 0 complete: {} container IDs in state {} found in DB",
-        ids.size(), state);
+    LOG.info("Phase 0 complete: {} container IDs found in DB "
+            + "(state={}, negativeSizeOnly={})",
+        ids.size(), state == null ? "ANY" : state, negativeSizeOnly);
 
     long[] arr = new long[ids.size()];
     for (int i = 0; i < ids.size(); i++) {

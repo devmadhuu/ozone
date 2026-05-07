@@ -64,10 +64,10 @@ import picocli.CommandLine.Option;
  * CLI subcommand: {@code ozone recon-container export-keys}.
  *
  * <p>Exports a {@code containerId → completePath} mapping for all containers
- * matching a given lifecycle state, reading Recon RocksDB and the OM snapshot
- * DB directly — bypassing the REST API for maximum throughput while producing
- * output identical to what {@code /api/v1/containers/{id}/keys} would return
- * for each container.
+ * matching the requested metadata filters, reading Recon RocksDB and the OM
+ * snapshot DB directly — bypassing the REST API for maximum throughput while
+ * producing output identical to what {@code /api/v1/containers/{id}/keys}
+ * would return for each container.
  *
  * <h3>Key properties</h3>
  * <ul>
@@ -109,7 +109,8 @@ import picocli.CommandLine.Option;
  * <ol>
  *   <li><b>Phase 0</b> – Load container IDs by scanning the
  *       {@code containers} table of a SCM-compatible DB file ({@code scm.db}
- *       or {@code recon-scm.db}) passed via {@code --scm-db}.
+ *       or {@code recon-scm.db}) passed via {@code --scm-db}. Containers are
+ *       filtered by lifecycle state and/or negative {@code usedBytes}.
  *       No live SCM service required ({@link ContainerIdLoader}).</li>
  *   <li><b>Phase 1</b> – Seek per container ID into Recon's
  *       {@code containerKeyTable}, resolve each key to its full path, and
@@ -119,7 +120,7 @@ import picocli.CommandLine.Option;
 @Command(
     name = "export-keys",
     description = "Export containerId → completePath for all containers "
-        + "matching a lifecycle state.  Output mirrors /api/v1/containers/{id}/keys: "
+        + "matching metadata filters.  Output mirrors /api/v1/containers/{id}/keys: "
         + "paths are fully resolved and each unique key is emitted exactly once.",
     mixinStandardHelpOptions = true,
     versionProvider = HddsVersionProvider.class)
@@ -136,10 +137,17 @@ public class ExportKeysSubcommand extends AbstractSubcommand
   // -------------------------------------------------------------------------
 
   @Option(names = {"--container-state"},
-      required = true,
       description = "Container lifecycle state: "
-          + "OPEN, CLOSING, QUASI_CLOSED, CLOSED, DELETING, DELETED")
+          + "OPEN, CLOSING, QUASI_CLOSED, CLOSED, DELETING, DELETED. "
+          + "Optional when --negative-size-only is used.")
   private HddsProtos.LifeCycleState containerState;
+
+  @Option(names = {"--negative-size-only"},
+      defaultValue = "false",
+      description = "Only export mappings for containers whose usedBytes "
+          + "field in the SCM containers table is negative. Can be combined "
+          + "with --container-state.")
+  private boolean negativeSizeOnly;
 
   @Option(names = {"--recon-db"},
       required = true,
@@ -206,6 +214,11 @@ public class ExportKeysSubcommand extends AbstractSubcommand
     long startMs = System.currentTimeMillis();
     OzoneConfiguration conf = getOzoneConf();
 
+    if (containerState == null && !negativeSizeOnly) {
+      throw new IOException("Specify --container-state, --negative-size-only, "
+          + "or both.");
+    }
+
     // getAbsoluteFile() is required: DBStoreBuilder calls getParentFile().toPath()
     // which throws NullPointerException when the File was constructed from a
     // relative path (no parent component), e.g. new File("scm.db").getParentFile()
@@ -242,25 +255,31 @@ public class ExportKeysSubcommand extends AbstractSubcommand
     long[] containerIds;
     DBStore scmDbStore = openScmDb(conf, scmDbFile);
     try {
-      containerIds = ContainerIdLoader.load(scmDbStore, containerState);
+      containerIds = ContainerIdLoader.load(
+          scmDbStore, containerState, negativeSizeOnly);
     } finally {
       closeQuietly(scmDbStore);
     }
-    LOG.info("Phase 0 done: {} containers in state {} (read from {})",
-        containerIds.length, containerState, scmDbFile.getName());
-    System.err.printf("[export-keys] Phase 0: %d containers in state %s "
+    LOG.info("Phase 0 done: {} containers matching filter {} (read from {})",
+        containerIds.length, filterDescription(), scmDbFile.getName());
+    System.err.printf("[export-keys] Phase 0: %d containers matching %s "
         + "loaded from %s (%.1f sec)%n",
-        containerIds.length, containerState, scmDbFile.getName(),
+        containerIds.length, filterDescription(), scmDbFile.getName(),
         (System.currentTimeMillis() - startMs) / 1000.0);
 
     if (containerIds.length == 0) {
       reconFuture.cancel(false);
       omFuture.cancel(false);
-      System.err.println("[export-keys] No containers found in state "
-          + containerState + ".");
+      System.err.println("[export-keys] No containers found matching "
+          + filterDescription() + ".");
       System.err.println("[export-keys] Hints:");
-      System.err.println("  1. Verify the live count:  "
-          + "ozone admin container list --state " + containerState);
+      if (containerState != null) {
+        System.err.println("  1. Verify the live count:  "
+            + "ozone admin container list --state " + containerState);
+      } else {
+        System.err.println("  1. Verify the SCM containers table contains "
+            + "ContainerInfo entries with usedBytes < 0.");
+      }
       System.err.println("  2. If you passed --scm-db scm.db, try "
           + "--scm-db recon-scm.db (Recon's own mirror) or vice versa.");
       System.err.println("  3. Check whether the DB file is a recent copy — "
@@ -375,8 +394,9 @@ public class ExportKeysSubcommand extends AbstractSubcommand
       throw new IOException("Cannot create output directory: " + outputDir);
     }
 
-    // Cap shards to the number of containers.
-    int numShards = Math.min(Math.max(1, shards), containerIds.length);
+    // Keep the shard count tied to the user-provided value so --resume remains
+    // stable even if the matching container count changes between runs.
+    int numShards = Math.max(1, shards);
 
     if (resume) {
       // Short-circuit: if _SUCCESS already exists the export is fully done.
@@ -386,7 +406,7 @@ public class ExportKeysSubcommand extends AbstractSubcommand
         return;
       }
       // Guard: require a _MANIFEST written by the original run so we can
-      // detect parameter mismatches (wrong --shards, wrong --container-state).
+      // detect parameter mismatches (wrong --shards, filters, or compression).
       if (!new File(outDir, MANIFEST_FILE).exists()) {
         throw new IOException("--resume requires a " + MANIFEST_FILE
             + " file in " + outDir + " but none was found. "
@@ -577,8 +597,11 @@ public class ExportKeysSubcommand extends AbstractSubcommand
   private void writeManifest(File outDir, int numShards,
       int containerCount) throws IOException {
     Properties props = new Properties();
-    props.setProperty("container-state", containerState.name());
+    props.setProperty("container-state", filterName());
+    props.setProperty("negative-size-only",
+        String.valueOf(negativeSizeOnly));
     props.setProperty("shards", String.valueOf(numShards));
+    props.setProperty("compress", String.valueOf(compress));
     props.setProperty("container-count", String.valueOf(containerCount));
     props.setProperty("written-at", Instant.now().toString());
     try (FileWriter fw = new FileWriter(new File(outDir, MANIFEST_FILE))) {
@@ -589,9 +612,10 @@ public class ExportKeysSubcommand extends AbstractSubcommand
   /**
    * Reads the existing {@code _MANIFEST} and verifies that the current
    * invocation's parameters are compatible with the original run.
-   * Throws {@link IOException} on a hard mismatch ({@code container-state}
-   * or {@code shards}); logs a warning for a changed {@code container-count}
-   * since containers may have been added or removed between runs.
+   * Throws {@link IOException} on a hard mismatch ({@code container-state},
+   * {@code shards}, or {@code compress}); logs a warning for a changed
+   * {@code container-count} since containers may have been added or removed
+   * between runs.
    */
   private void verifyManifest(File outDir, int numShards,
       int containerCount) throws IOException {
@@ -600,16 +624,30 @@ public class ExportKeysSubcommand extends AbstractSubcommand
       props.load(fr);
     }
     String mState = props.getProperty("container-state", "");
-    if (!containerState.name().equals(mState)) {
+    if (!filterName().equals(mState)) {
       throw new IOException("--resume parameter mismatch: _MANIFEST has "
           + "container-state=" + mState + " but current run uses "
-          + containerState.name() + ". Use the same --container-state to resume.");
+          + filterName() + ". Use the same filter options to resume.");
+    }
+    String mNegativeSizeOnly =
+        props.getProperty("negative-size-only", "false");
+    if (!String.valueOf(negativeSizeOnly).equals(mNegativeSizeOnly)) {
+      throw new IOException("--resume parameter mismatch: _MANIFEST has "
+          + "negative-size-only=" + mNegativeSizeOnly
+          + " but current run uses " + negativeSizeOnly
+          + ". Use the same filter options to resume.");
     }
     String mShards = props.getProperty("shards", "");
     if (!String.valueOf(numShards).equals(mShards)) {
       throw new IOException("--resume parameter mismatch: _MANIFEST has "
           + "shards=" + mShards + " but current run uses " + numShards
           + ". Use the same --shards value to resume.");
+    }
+    String mCompress = props.getProperty("compress", "false");
+    if (!String.valueOf(compress).equals(mCompress)) {
+      throw new IOException("--resume parameter mismatch: _MANIFEST has "
+          + "compress=" + mCompress + " but current run uses " + compress
+          + ". Use the same --compress value to resume.");
     }
     String mCount = props.getProperty("container-count", "0");
     int prevCount = Integer.parseInt(mCount);
@@ -619,8 +657,10 @@ public class ExportKeysSubcommand extends AbstractSubcommand
           + "already-completed shards will not be re-written.",
           prevCount, containerCount);
     }
-    LOG.info("Manifest verified: container-state={} shards={} original-written-at={}",
-        mState, mShards, props.getProperty("written-at", "unknown"));
+    LOG.info("Manifest verified: container-state={} negative-size-only={} "
+            + "shards={} compress={} original-written-at={}",
+        mState, mNegativeSizeOnly, mShards, mCompress,
+        props.getProperty("written-at", "unknown"));
   }
 
   // -------------------------------------------------------------------------
@@ -636,14 +676,34 @@ public class ExportKeysSubcommand extends AbstractSubcommand
   private File shardTmpFile(File outDir, int shardIdx) {
     String suffix = compress ? ".tsv.gz" : ".tsv";
     return new File(outDir, String.format("%s-shard-%03d%s_INCOMPLETE",
-        containerState.name(), shardIdx, suffix));
+        filterName(), shardIdx, suffix));
   }
 
   /** Returns the final (successfully completed) path for a shard. */
   private File shardFinalFile(File outDir, int shardIdx) {
     String suffix = compress ? ".tsv.gz" : ".tsv";
     return new File(outDir, String.format("%s-shard-%03d%s",
-        containerState.name(), shardIdx, suffix));
+        filterName(), shardIdx, suffix));
+  }
+
+  private String filterName() {
+    if (negativeSizeOnly && containerState == null) {
+      return "NEGATIVE_SIZE";
+    }
+    if (negativeSizeOnly) {
+      return containerState.name() + "-NEGATIVE_SIZE";
+    }
+    return containerState.name();
+  }
+
+  private String filterDescription() {
+    if (negativeSizeOnly && containerState == null) {
+      return "usedBytes < 0";
+    }
+    if (negativeSizeOnly) {
+      return "state " + containerState + " and usedBytes < 0";
+    }
+    return "state " + containerState;
   }
 
   /** Converts a {@code List<Long>} to a primitive {@code long[]}. */
