@@ -108,7 +108,6 @@ public class OzoneManagerServiceProviderImpl
       LoggerFactory.getLogger(OzoneManagerServiceProviderImpl.class);
   private URLConnectionFactory connectionFactory;
 
-  private File omSnapshotDBParentDir = null;
   private File reconDbDir = null;
 
   private OzoneManagerProtocol ozoneManagerClient;
@@ -171,7 +170,7 @@ public class OzoneManagerServiceProviderImpl
     long deltaUpdateLimits = configuration.getLong(RECON_OM_DELTA_UPDATE_LIMIT,
         RECON_OM_DELTA_UPDATE_LIMIT_DEFAULT);
 
-    omSnapshotDBParentDir = reconUtils.getReconDbDir(configuration,
+    File omSnapshotDBParentDir = reconUtils.getReconDbDir(configuration,
         OZONE_RECON_OM_SNAPSHOT_DB_DIR);
     reconDbDir = reconUtils.getReconDbDir(configuration,
         ReconConfigKeys.OZONE_RECON_DB_DIR);
