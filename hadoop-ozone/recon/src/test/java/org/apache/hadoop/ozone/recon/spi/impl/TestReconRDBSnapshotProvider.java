@@ -18,11 +18,11 @@
 package org.apache.hadoop.ozone.recon.spi.impl;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.ozone.OzoneConsts.HARDLINK_SEPARATOR;
 import static org.apache.hadoop.ozone.recon.ReconConstants.RECON_OM_SNAPSHOT_DB;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
@@ -71,8 +71,9 @@ public class TestReconRDBSnapshotProvider {
         newProvider(snapshotDir, () -> liveDbDir);
     provider.seedCandidateDir("leader-1");
 
-    Set<String> seeded = new HashSet<>(
-        Arrays.asList(requireNonNull(provider.getCandidateDir().list())));
+    String[] seededFiles = provider.getCandidateDir().list();
+    assertNotNull(seededFiles);
+    Set<String> seeded = new HashSet<>(Arrays.asList(seededFiles));
     assertEquals(new HashSet<>(Arrays.asList("000001.sst", "000002.sst")),
         seeded, "Only .sst files should be seeded");
 
@@ -93,8 +94,9 @@ public class TestReconRDBSnapshotProvider {
 
     provider.seedCandidateDir("leader-1");
 
-    Set<String> candidate = new HashSet<>(
-        Arrays.asList(requireNonNull(provider.getCandidateDir().list())));
+    String[] candidateFiles = provider.getCandidateDir().list();
+    assertNotNull(candidateFiles);
+    Set<String> candidate = new HashSet<>(Arrays.asList(candidateFiles));
     assertEquals(new HashSet<>(Arrays.asList("partial.sst")), candidate,
         "Existing partial download must not be re-seeded");
   }
