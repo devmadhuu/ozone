@@ -185,6 +185,13 @@ public class ReconRDBSnapshotProvider extends RDBSnapshotProvider {
   @Override
   public DBCheckpoint getCheckpointFromUntarredDb(Path untarredDbDir)
       throws IOException {
+    // The base class only calls this once it has seen the leader's
+    // end-of-tarball marker. That marker is named "ratis snapshot complete"
+    // for historical reasons, but it is not Ratis-specific: OM's shared
+    // DBCheckpointServlet appends it to the end of every /v2/dbCheckpoint
+    // response (the same one an OM follower bootstraps from), so here it just
+    // means "the leader finished sending the checkpoint".
+
     // Installs hard links from hardLinkFile (tolerates a missing/empty file)
     // and moves root-level DB files into <untarredDbDir>/om.db.
     new InodeMetadataRocksDBCheckpoint(untarredDbDir, true);
