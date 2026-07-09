@@ -97,6 +97,21 @@ public abstract class RDBSnapshotProvider implements Closeable {
   }
 
   /**
+   * Hook invoked after the candidate dir consistency check and before the
+   * download loop begins. Subclasses may override this to pre-populate the
+   * candidate dir (for example, hard-linking files a client already has) so
+   * that those files are advertised in the exclude list and are not
+   * re-downloaded. The default implementation is a no-op.
+   *
+   * @param leaderNodeID the ID of the leader node the snapshot is downloaded
+   *                     from
+   * @throws IOException if seeding the candidate dir fails
+   */
+  protected void seedCandidateDir(String leaderNodeID) throws IOException {
+    // no-op by default
+  }
+
+  /**
    * Download the latest DB snapshot(checkpoint) from the Leader.
    *
    * @param leaderNodeID the ID of leader node
@@ -108,6 +123,7 @@ public abstract class RDBSnapshotProvider implements Closeable {
     LOG.info("Prepare to download the snapshot from leader OM {} and " +
         "reloading state from the snapshot.", leaderNodeID);
     checkLeaderConsistency(leaderNodeID);
+    seedCandidateDir(leaderNodeID);
     int numParts = 0;
 
     while (true) {
