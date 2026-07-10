@@ -26,9 +26,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.function.Supplier;
 import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.hdds.server.http.HttpConfig;
@@ -40,17 +37,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Tests for {@link ReconRDBSnapshotProvider}: candidate-dir seeding from the
- * live OM DB and normalization/promotion of the assembled checkpoint.
+ * Tests for {@link ReconRDBSnapshotProvider}: normalization and promotion of
+ * the assembled checkpoint after the transfer completes.
  */
 public class TestReconRDBSnapshotProvider {
 
   private static final Supplier<ServiceInfo> NO_LEADER = () -> null;
 
-  private ReconRDBSnapshotProvider newProvider(File snapshotDir,
-      Supplier<File> liveDbDirSupplier) {
+  private ReconRDBSnapshotProvider newProvider(File snapshotDir) {
     return new ReconRDBSnapshotProvider(snapshotDir, null, false,
-        HttpConfig.Policy.HTTP_ONLY, false, NO_LEADER, liveDbDirSupplier);
+        HttpConfig.Policy.HTTP_ONLY, false, NO_LEADER);
   }
 
   private void writeFile(File dir, String name, String content)
@@ -59,63 +55,9 @@ public class TestReconRDBSnapshotProvider {
   }
 
   @Test
-  public void testSeedLinksOnlySstFiles(@TempDir File snapshotDir,
-      @TempDir File liveDbDir) throws IOException {
-    writeFile(liveDbDir, "000001.sst", "sst-one");
-    writeFile(liveDbDir, "000002.sst", "sst-two");
-    writeFile(liveDbDir, "CURRENT", "current");
-    writeFile(liveDbDir, "MANIFEST-000005", "manifest");
-
-    ReconRDBSnapshotProvider provider =
-        newProvider(snapshotDir, () -> liveDbDir);
-    provider.seedCandidateDir("leader-1");
-
-    String[] seededFiles = provider.getCandidateDir().list();
-    if (seededFiles == null) {
-      throw new AssertionError("candidate dir listing returned null");
-    }
-    Set<String> seeded = new HashSet<>(Arrays.asList(seededFiles));
-    assertEquals(new HashSet<>(Arrays.asList("000001.sst", "000002.sst")),
-        seeded, "Only .sst files should be seeded");
-
-    // Seeded files must be hard links (identical content) to the live DB.
-    assertEquals("sst-one", FileUtils.readFileToString(
-        new File(provider.getCandidateDir(), "000001.sst"), UTF_8));
-  }
-
-  @Test
-  public void testSeedSkippedWhenCandidateNotEmpty(@TempDir File snapshotDir,
-      @TempDir File liveDbDir) throws IOException {
-    writeFile(liveDbDir, "000001.sst", "sst-one");
-
-    ReconRDBSnapshotProvider provider =
-        newProvider(snapshotDir, () -> liveDbDir);
-    // Simulate a partial download already present in the candidate dir.
-    writeFile(provider.getCandidateDir(), "partial.sst", "partial");
-
-    provider.seedCandidateDir("leader-1");
-
-    String[] candidateFiles = provider.getCandidateDir().list();
-    if (candidateFiles == null) {
-      throw new AssertionError("candidate dir listing returned null");
-    }
-    Set<String> candidate = new HashSet<>(Arrays.asList(candidateFiles));
-    assertEquals(new HashSet<>(Arrays.asList("partial.sst")), candidate,
-        "Existing partial download must not be re-seeded");
-  }
-
-  @Test
-  public void testSeedNoOpWhenNoLiveDb(@TempDir File snapshotDir)
-      throws IOException {
-    ReconRDBSnapshotProvider provider = newProvider(snapshotDir, () -> null);
-    provider.seedCandidateDir("leader-1");
-    assertEquals(0, provider.getCandidateDir().list().length);
-  }
-
-  @Test
   public void testGetCheckpointPromotesDbAndClearsCandidate(
       @TempDir File snapshotDir) throws IOException {
-    ReconRDBSnapshotProvider provider = newProvider(snapshotDir, () -> null);
+    ReconRDBSnapshotProvider provider = newProvider(snapshotDir);
     File candidate = provider.getCandidateDir();
 
     // Simulate a fully untarred v2 checkpoint: flat DB files at the root plus
@@ -137,14 +79,14 @@ public class TestReconRDBSnapshotProvider {
     // The completion sentinel must not leak into the DB.
     assertFalse(new File(promoted,
         HddsServerUtil.OZONE_RATIS_SNAPSHOT_COMPLETE_FLAG_NAME).exists());
-    // Candidate dir must be emptied so the next sync re-seeds cleanly.
+    // Candidate dir must be emptied so the next sync starts clean.
     assertEquals(0, candidate.list().length);
   }
 
   @Test
   public void testGetCheckpointInstallsHardLinks(@TempDir File snapshotDir)
       throws IOException {
-    ReconRDBSnapshotProvider provider = newProvider(snapshotDir, () -> null);
+    ReconRDBSnapshotProvider provider = newProvider(snapshotDir);
     File candidate = provider.getCandidateDir();
 
     writeFile(candidate, "000001.sst", "shared-content");
@@ -167,7 +109,7 @@ public class TestReconRDBSnapshotProvider {
 
   @Test
   public void testCandidateDirLocation(@TempDir File snapshotDir) {
-    ReconRDBSnapshotProvider provider = newProvider(snapshotDir, () -> null);
+    ReconRDBSnapshotProvider provider = newProvider(snapshotDir);
     assertEquals(RECON_OM_SNAPSHOT_DB + ".candidate",
         provider.getCandidateDir().getName());
     assertEquals(snapshotDir, provider.getCandidateDir().getParentFile());

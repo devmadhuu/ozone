@@ -64,7 +64,6 @@ import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.recon.ReconConfigKeys;
 import org.apache.hadoop.hdds.server.http.HttpConfig;
 import org.apache.hadoop.hdds.utils.db.DBCheckpoint;
-import org.apache.hadoop.hdds.utils.db.DBStore;
 import org.apache.hadoop.hdds.utils.db.RDBBatchOperation;
 import org.apache.hadoop.hdds.utils.db.RDBStore;
 import org.apache.hadoop.hdds.utils.db.RocksDatabase;
@@ -207,7 +206,7 @@ public class OzoneManagerServiceProviderImpl
     // dedup), seeding the exclude list from Recon's live OM DB.
     this.reconSnapshotProvider = new ReconRDBSnapshotProvider(
         omSnapshotDBParentDir, connectionFactory, isOmSpnegoEnabled(), policy,
-        flushParam, this::getLeaderServiceInfo, this::getLiveOmDbDir);
+        flushParam, this::getLeaderServiceInfo);
   }
 
   @Override
@@ -409,19 +408,9 @@ public class OzoneManagerServiceProviderImpl
   }
 
   /**
-   * Return the directory of Recon's currently-open (live) OM DB, or
-   * {@code null} if no DB is open yet (first boot). Used to seed the exclude
-   * list so only changed SSTs are transferred.
-   */
-  private File getLiveOmDbDir() {
-    DBStore store = omMetadataManager.getStore();
-    return store == null ? null : store.getDbLocation();
-  }
-
-  /**
-   * Obtain the current OM DB snapshot using the OM-follower incremental
-   * bootstrap mechanism (chunked {@code POST /v2/dbCheckpoint} with SST
-   * exclusion and hard-link dedup). The returned {@link DBCheckpoint} points at
+   * Obtain the current OM DB snapshot using the same OM-follower bootstrap
+   * mechanism (chunked, resumable {@code POST /v2/dbCheckpoint} with hard-link
+   * dedup on the leader). The returned {@link DBCheckpoint} points at
    * a stable {@code om.snapshot.db_<ts>} directory ready to be promoted by
    * {@link #updateReconOmDBWithNewSnapshot()}; returns {@code null} on failure,
    * leaving the current active DB untouched.

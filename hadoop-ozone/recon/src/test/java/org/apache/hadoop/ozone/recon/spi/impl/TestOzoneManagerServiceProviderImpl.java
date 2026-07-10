@@ -631,7 +631,7 @@ public class TestOzoneManagerServiceProviderImpl {
       boolean fail) {
     return new ReconRDBSnapshotProvider(snapshotParent, null, false,
         org.apache.hadoop.hdds.server.http.HttpConfig.Policy.HTTP_ONLY, false,
-        () -> null, () -> null) {
+        () -> null) {
       @Override
       public DBCheckpoint downloadDBSnapshotFromLeader(String leaderNodeID)
           throws IOException {

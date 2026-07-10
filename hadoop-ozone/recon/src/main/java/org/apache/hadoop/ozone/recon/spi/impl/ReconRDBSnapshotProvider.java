@@ -24,7 +24,6 @@ import static org.apache.hadoop.ozone.OzoneConsts.OM_DB_NAME;
 import static org.apache.hadoop.ozone.OzoneConsts.OZONE_DB_CHECKPOINT_HTTP_ENDPOINT_V2;
 import static org.apache.hadoop.ozone.OzoneConsts.OZONE_DB_CHECKPOINT_INCLUDE_SNAPSHOT_DATA;
 import static org.apache.hadoop.ozone.OzoneConsts.OZONE_DB_CHECKPOINT_REQUEST_FLUSH;
-import static org.apache.hadoop.ozone.OzoneConsts.ROCKSDB_SST_SUFFIX;
 import static org.apache.hadoop.ozone.recon.ReconConstants.RECON_OM_SNAPSHOT_DB;
 
 import java.io.File;
@@ -56,22 +55,15 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Recon's {@link RDBSnapshotProvider} implementation that downloads the OM DB
- * checkpoint using the same incremental bootstrap mechanism an OM follower
- * uses: a chunked {@code POST /v2/dbCheckpoint} request carrying a
- * {@code toExcludeList[]} of SST files Recon already has, with hard-link dedup
- * on the leader and a completion sentinel to end the transfer.
+ * checkpoint using the same bootstrap mechanism an OM follower uses: a chunked
+ * {@code POST /v2/dbCheckpoint} request that carries a {@code toExcludeList[]}
+ * of the parts already received so an interrupted transfer can resume, with
+ * hard-link dedup on the leader and a completion sentinel to end the transfer.
  *
- * <p>On top of the follower behavior, this provider <b>seeds</b> the candidate
- * dir with hard links to the SST files in Recon's currently-installed OM DB
- * (the "live" DB). Those SSTs then appear in the exclude list, so a
- * full-snapshot fallback only transfers SST files that actually changed. The
- * resulting DB is always complete: RocksDB SST file numbers are content-stable
- * within a DB lineage, so a seeded {@code 000123.sst} is byte-identical to the
- * leader's, and non-SST files (CURRENT/MANIFEST/OPTIONS) are always re-sent.
- *
- * <p>Only {@code .sst} files are seeded. Non-SST files are small, are always
- * re-sent by the leader, and hard-linking the live DB's {@code LOCK} file would
- * risk a lock conflict when the assembled DB is opened.
+ * <p>This mirrors {@link OmRatisSnapshotProvider}: it overrides
+ * {@link #downloadSnapshot} to POST to the leader's {@code /v2/dbCheckpoint}
+ * endpoint and {@link #getCheckpointFromUntarredDb} to assemble and promote the
+ * downloaded DB into a stable snapshot dir Recon can open.
  */
 public class ReconRDBSnapshotProvider extends RDBSnapshotProvider {
 
@@ -83,57 +75,17 @@ public class ReconRDBSnapshotProvider extends RDBSnapshotProvider {
   private final boolean httpsEnabled;
   private final boolean flushBeforeCheckpoint;
   private final Supplier<ServiceInfo> leaderInfoSupplier;
-  private final Supplier<File> liveDbDirSupplier;
 
   public ReconRDBSnapshotProvider(File snapshotDir,
       URLConnectionFactory connectionFactory, boolean spnegoEnabled,
       HttpConfig.Policy httpPolicy, boolean flushBeforeCheckpoint,
-      Supplier<ServiceInfo> leaderInfoSupplier,
-      Supplier<File> liveDbDirSupplier) {
+      Supplier<ServiceInfo> leaderInfoSupplier) {
     super(snapshotDir, RECON_OM_SNAPSHOT_DB);
     this.connectionFactory = connectionFactory;
     this.spnegoEnabled = spnegoEnabled;
     this.httpsEnabled = httpPolicy.isHttpsEnabled();
     this.flushBeforeCheckpoint = flushBeforeCheckpoint;
     this.leaderInfoSupplier = leaderInfoSupplier;
-    this.liveDbDirSupplier = liveDbDirSupplier;
-  }
-
-  /**
-   * Seed the candidate dir with hard links to the live DB's SST files so they
-   * are advertised in the exclude list and not re-downloaded. Only runs when
-   * the candidate dir is empty (first sync, after a wipe on leader change, or
-   * after a previous clean download); if a partial download is present it is
-   * left untouched so it can resume.
-   */
-  @Override
-  protected void seedCandidateDir(String leaderNodeID) throws IOException {
-    File candidate = getCandidateDir();
-    if (!HAUtils.getExistingFiles(candidate).isEmpty()) {
-      // Partial download in progress - resume, do not re-seed.
-      return;
-    }
-    File liveDbDir = liveDbDirSupplier.get();
-    if (liveDbDir == null || !liveDbDir.exists()) {
-      LOG.info("No live Recon OM DB found to seed from; a full snapshot will "
-          + "be downloaded.");
-      return;
-    }
-    File[] sstFiles = liveDbDir.listFiles(
-        (dir, name) -> name.endsWith(ROCKSDB_SST_SUFFIX));
-    if (sstFiles == null || sstFiles.length == 0) {
-      return;
-    }
-    int linked = 0;
-    for (File sst : sstFiles) {
-      Path target = candidate.toPath().resolve(sst.getName());
-      if (!Files.exists(target)) {
-        Files.createLink(target, sst.toPath());
-        linked++;
-      }
-    }
-    LOG.info("Seeded {} SST files into candidate dir {} from live OM DB {} for "
-        + "incremental exclusion.", linked, candidate, liveDbDir);
   }
 
   @Override
@@ -180,7 +132,7 @@ public class ReconRDBSnapshotProvider extends RDBSnapshotProvider {
    * normalize the layout to {@code <candidate>/om.db}, then move that DB out of
    * the reused candidate dir into a stable timestamped snapshot dir that Recon
    * opens as its new live DB. The candidate dir is emptied so the next sync
-   * re-seeds from the freshly promoted DB.
+   * starts from a clean candidate dir.
    */
   @Override
   public DBCheckpoint getCheckpointFromUntarredDb(Path untarredDbDir)
