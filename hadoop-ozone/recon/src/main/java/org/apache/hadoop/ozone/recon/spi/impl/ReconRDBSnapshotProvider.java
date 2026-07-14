@@ -21,16 +21,19 @@ import static java.net.HttpURLConnection.HTTP_CREATED;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static org.apache.hadoop.ozone.OzoneConsts.MULTIPART_FORM_DATA_BOUNDARY;
 import static org.apache.hadoop.ozone.OzoneConsts.OM_DB_NAME;
+import static org.apache.hadoop.ozone.OzoneConsts.OZONE_DB_CHECKPOINT_HTTP_ENDPOINT;
 import static org.apache.hadoop.ozone.OzoneConsts.OZONE_DB_CHECKPOINT_HTTP_ENDPOINT_V2;
 import static org.apache.hadoop.ozone.OzoneConsts.OZONE_DB_CHECKPOINT_INCLUDE_SNAPSHOT_DATA;
 import static org.apache.hadoop.ozone.OzoneConsts.OZONE_DB_CHECKPOINT_REQUEST_FLUSH;
 import static org.apache.hadoop.ozone.recon.ReconConstants.RECON_OM_SNAPSHOT_DB;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
@@ -49,7 +52,6 @@ import org.apache.hadoop.ozone.om.helpers.ServiceInfo;
 import org.apache.hadoop.ozone.om.ratis_snapshot.OmRatisSnapshotProvider;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.ServicePort.Type;
 import org.apache.hadoop.security.SecurityUtil;
-import org.apache.http.client.utils.URIBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -63,7 +65,9 @@ import org.slf4j.LoggerFactory;
  * <p>This mirrors {@link OmRatisSnapshotProvider}: it overrides
  * {@link #downloadSnapshot} to POST to the leader's {@code /v2/dbCheckpoint}
  * endpoint and {@link #getCheckpointFromUntarredDb} to assemble and promote the
- * downloaded DB into a stable snapshot dir Recon can open.
+ * downloaded DB into a stable snapshot dir Recon can open. Like the OM follower,
+ * it honors {@code ozone.om.db.checkpoint.use.inode.based.transfer}: when that is
+ * {@code false} it falls back to the v1 {@code /dbCheckpoint} endpoint.
  */
 public class ReconRDBSnapshotProvider extends RDBSnapshotProvider {
 
@@ -74,17 +78,20 @@ public class ReconRDBSnapshotProvider extends RDBSnapshotProvider {
   private final boolean spnegoEnabled;
   private final boolean httpsEnabled;
   private final boolean flushBeforeCheckpoint;
+  private final boolean useV2CheckpointApi;
   private final Supplier<ServiceInfo> leaderInfoSupplier;
 
   public ReconRDBSnapshotProvider(File snapshotDir,
       URLConnectionFactory connectionFactory, boolean spnegoEnabled,
       HttpConfig.Policy httpPolicy, boolean flushBeforeCheckpoint,
+      boolean useV2CheckpointApi,
       Supplier<ServiceInfo> leaderInfoSupplier) {
     super(snapshotDir, RECON_OM_SNAPSHOT_DB);
     this.connectionFactory = connectionFactory;
     this.spnegoEnabled = spnegoEnabled;
     this.httpsEnabled = httpPolicy.isHttpsEnabled();
     this.flushBeforeCheckpoint = flushBeforeCheckpoint;
+    this.useV2CheckpointApi = useV2CheckpointApi;
     this.leaderInfoSupplier = leaderInfoSupplier;
   }
 
@@ -103,7 +110,9 @@ public class ReconRDBSnapshotProvider extends RDBSnapshotProvider {
           "multipart/form-data; boundary=" + MULTIPART_FORM_DATA_BOUNDARY);
       connection.setDoOutput(true);
 
-      List<String> existingFiles = HAUtils.getExistingFiles(getCandidateDir());
+      List<String> existingFiles = useV2CheckpointApi
+          ? HAUtils.getExistingFiles(getCandidateDir())
+          : HAUtils.getExistingSstFilesRelativeToDbDir(getCandidateDir());
       OmRatisSnapshotProvider.writeFormData(connection, existingFiles);
 
       connection.connect();
@@ -145,8 +154,9 @@ public class ReconRDBSnapshotProvider extends RDBSnapshotProvider {
     // means "the leader finished sending the checkpoint".
 
     // Installs hard links from hardLinkFile (tolerates a missing/empty file)
-    // and moves root-level DB files into <untarredDbDir>/om.db.
-    new InodeMetadataRocksDBCheckpoint(untarredDbDir, true);
+    // and moves root-level DB files into <untarredDbDir>/om.db. deleteSourceFiles
+    // follows the endpoint: true for v2 (inode-based), false for the v1 layout.
+    new InodeMetadataRocksDBCheckpoint(untarredDbDir, useV2CheckpointApi);
 
     Path omDbDir = untarredDbDir.resolve(OM_DB_NAME);
     if (!Files.isDirectory(omDbDir)) {
@@ -166,19 +176,19 @@ public class ReconRDBSnapshotProvider extends RDBSnapshotProvider {
     return new RocksDBCheckpoint(stablePath);
   }
 
-  private URL buildCheckpointUrl(ServiceInfo leader) throws IOException {
+  @VisibleForTesting
+  URL buildCheckpointUrl(ServiceInfo leader) throws IOException {
     Type portType = httpsEnabled ? Type.HTTPS : Type.HTTP;
+    String scheme = httpsEnabled ? "https" : "http";
+    String path = useV2CheckpointApi ? OZONE_DB_CHECKPOINT_HTTP_ENDPOINT_V2
+        : OZONE_DB_CHECKPOINT_HTTP_ENDPOINT;
+    // Recon does not need OM's nested snapshot data.
+    String query = OZONE_DB_CHECKPOINT_INCLUDE_SNAPSHOT_DATA + "=false&"
+        + OZONE_DB_CHECKPOINT_REQUEST_FLUSH + "="
+        + (flushBeforeCheckpoint ? "true" : "false");
     try {
-      return new URIBuilder()
-          .setScheme(httpsEnabled ? "https" : "http")
-          .setHost(leader.getHostname())
-          .setPort(leader.getPort(portType))
-          .setPath(OZONE_DB_CHECKPOINT_HTTP_ENDPOINT_V2)
-          // Recon does not need OM's nested snapshot data.
-          .addParameter(OZONE_DB_CHECKPOINT_INCLUDE_SNAPSHOT_DATA, "false")
-          .addParameter(OZONE_DB_CHECKPOINT_REQUEST_FLUSH,
-              flushBeforeCheckpoint ? "true" : "false")
-          .build().toURL();
+      return new URI(scheme, null, leader.getHostname(),
+          leader.getPort(portType), path, query, null).toURL();
     } catch (URISyntaxException | MalformedURLException e) {
       throw new IOException("Could not build OM DB checkpoint URL", e);
     }

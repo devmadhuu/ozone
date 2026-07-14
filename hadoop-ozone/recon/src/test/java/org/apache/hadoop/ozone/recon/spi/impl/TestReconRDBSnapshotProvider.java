@@ -19,10 +19,15 @@ package org.apache.hadoop.ozone.recon.spi.impl;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.ozone.OzoneConsts.HARDLINK_SEPARATOR;
+import static org.apache.hadoop.ozone.OzoneConsts.OZONE_DB_CHECKPOINT_HTTP_ENDPOINT;
+import static org.apache.hadoop.ozone.OzoneConsts.OZONE_DB_CHECKPOINT_HTTP_ENDPOINT_V2;
 import static org.apache.hadoop.ozone.recon.ReconConstants.RECON_OM_SNAPSHOT_DB;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.io.File;
 import java.io.IOException;
@@ -45,8 +50,13 @@ public class TestReconRDBSnapshotProvider {
   private static final Supplier<ServiceInfo> NO_LEADER = () -> null;
 
   private ReconRDBSnapshotProvider newProvider(File snapshotDir) {
+    return newProvider(snapshotDir, true);
+  }
+
+  private ReconRDBSnapshotProvider newProvider(File snapshotDir,
+      boolean useV2CheckpointApi) {
     return new ReconRDBSnapshotProvider(snapshotDir, null, false,
-        HttpConfig.Policy.HTTP_ONLY, false, NO_LEADER);
+        HttpConfig.Policy.HTTP_ONLY, false, useV2CheckpointApi, NO_LEADER);
   }
 
   private void writeFile(File dir, String name, String content)
@@ -113,5 +123,20 @@ public class TestReconRDBSnapshotProvider {
     assertEquals(RECON_OM_SNAPSHOT_DB + ".candidate",
         provider.getCandidateDir().getName());
     assertEquals(snapshotDir, provider.getCandidateDir().getParentFile());
+  }
+
+  @Test
+  public void testBuildCheckpointUrlHonorsInodeBasedConfig(
+      @TempDir File snapshotDir) throws IOException {
+    ServiceInfo leader = mock(ServiceInfo.class);
+    when(leader.getHostname()).thenReturn("om-host");
+    when(leader.getPort(any())).thenReturn(9874);
+
+    // Inode-based transfer on (default) -> v2 endpoint.
+    assertEquals(OZONE_DB_CHECKPOINT_HTTP_ENDPOINT_V2,
+        newProvider(snapshotDir, true).buildCheckpointUrl(leader).getPath());
+    // Disabled -> fall back to the v1 endpoint.
+    assertEquals(OZONE_DB_CHECKPOINT_HTTP_ENDPOINT,
+        newProvider(snapshotDir, false).buildCheckpointUrl(leader).getPath());
   }
 }
