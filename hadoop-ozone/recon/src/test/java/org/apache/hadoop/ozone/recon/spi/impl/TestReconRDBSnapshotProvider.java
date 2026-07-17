@@ -31,6 +31,7 @@ import static org.mockito.Mockito.when;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
 import java.util.function.Supplier;
 import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.hdds.server.http.HttpConfig;
@@ -133,10 +134,14 @@ public class TestReconRDBSnapshotProvider {
     when(leader.getPort(any())).thenReturn(9874);
 
     // Inode-based transfer on (default) -> v2 endpoint.
-    assertEquals(OZONE_DB_CHECKPOINT_HTTP_ENDPOINT_V2,
-        newProvider(snapshotDir, true).buildCheckpointUrl(leader).getPath());
+    URL v2Url = newProvider(snapshotDir, true).buildCheckpointUrl(leader);
+    assertEquals(OZONE_DB_CHECKPOINT_HTTP_ENDPOINT_V2, v2Url.getPath());
+    assertTrue(v2Url.getQuery().contains("includeSnapshotData=false"));
+    assertTrue(v2Url.getQuery().contains("flushBeforeCheckpoint=false"));
     // Disabled -> fall back to the v1 endpoint.
-    assertEquals(OZONE_DB_CHECKPOINT_HTTP_ENDPOINT,
-        newProvider(snapshotDir, false).buildCheckpointUrl(leader).getPath());
+    URL v1Url = newProvider(snapshotDir, false).buildCheckpointUrl(leader);
+    assertEquals(OZONE_DB_CHECKPOINT_HTTP_ENDPOINT, v1Url.getPath());
+    assertTrue(v1Url.getQuery().contains("includeSnapshotData=false"));
+    assertTrue(v1Url.getQuery().contains("flushBeforeCheckpoint=false"));
   }
 }

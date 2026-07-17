@@ -191,6 +191,11 @@ public class OzoneManagerServiceProviderImpl
     // Same switch OM followers honor: use the inode-based v2 checkpoint endpoint
     // by default, or fall back to the v1 endpoint when disabled (e.g. mixed
     // versions during an upgrade).
+    // NOTE: this flag is read from Recon's OzoneConfiguration, not OM's. During
+    // a mixed-version rollout, operators must set
+    // ozone.om.db.checkpoint.use.inode.based.transfer on Recon to match the
+    // OM cluster's setting; otherwise Recon may hit an endpoint the OM side
+    // does not serve.
     boolean useV2CheckpointApi = configuration.getBoolean(
         OZONE_OM_DB_CHECKPOINT_USE_INODE_BASED_KEY,
         OZONE_OM_DB_CHECKPOINT_USE_INODE_BASED_DEFAULT);
