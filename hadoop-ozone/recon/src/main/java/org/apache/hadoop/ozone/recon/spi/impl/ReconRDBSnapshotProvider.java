@@ -39,6 +39,7 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.hdds.server.http.HttpConfig;
@@ -80,6 +81,9 @@ public class ReconRDBSnapshotProvider extends RDBSnapshotProvider {
   private final boolean flushBeforeCheckpoint;
   private final boolean useV2CheckpointApi;
   private final Supplier<ServiceInfo> leaderInfoSupplier;
+  // Leader pinned for the duration of a single (possibly multi-part) transfer.
+  private final AtomicReference<ServiceInfo> pinnedLeader =
+      new AtomicReference<>();
 
   public ReconRDBSnapshotProvider(File snapshotDir,
       URLConnectionFactory connectionFactory, boolean spnegoEnabled,
@@ -95,10 +99,35 @@ public class ReconRDBSnapshotProvider extends RDBSnapshotProvider {
     this.leaderInfoSupplier = leaderInfoSupplier;
   }
 
+  /**
+   * Pin the OM leader for the whole transfer before delegating to the shared
+   * driver loop. The base loop resolves the leader only once (via
+   * {#checkLeaderConsistency}); re-resolving per part would let a
+   * mid-transfer OM failover merge parts from two leaders into the same
+   * candidate dir. Recon's transfer is single-part today (it excludes snapshot
+   * data), but pinning keeps this correct if that ever changes, matching how
+   * {@link OmRatisSnapshotProvider} pins the leader for every part.
+   */
+  @Override
+  public DBCheckpoint downloadDBSnapshotFromLeader(String leaderNodeID)
+      throws IOException {
+    pinnedLeader.set(leaderInfoSupplier.get());
+    try {
+      return super.downloadDBSnapshotFromLeader(leaderNodeID);
+    } finally {
+      pinnedLeader.set(null);
+    }
+  }
+
   @Override
   public void downloadSnapshot(String leaderNodeID, File targetFile)
       throws IOException {
-    ServiceInfo leader = leaderInfoSupplier.get();
+    // Use the leader pinned for this transfer. The fallback only applies to a
+    // direct downloadSnapshot call outside downloadDBSnapshotFromLeader.
+    ServiceInfo leader = pinnedLeader.get();
+    if (leader == null) {
+      leader = leaderInfoSupplier.get();
+    }
     URL checkpointUrl = buildCheckpointUrl(leader);
     LOG.info("Downloading OM DB checkpoint from leader {}. Checkpoint: {}, "
         + "URL: {}", leaderNodeID, targetFile.getName(), checkpointUrl);
@@ -192,6 +221,11 @@ public class ReconRDBSnapshotProvider extends RDBSnapshotProvider {
     } catch (URISyntaxException | MalformedURLException e) {
       throw new IOException("Could not build OM DB checkpoint URL", e);
     }
+  }
+
+  @VisibleForTesting
+  ServiceInfo getPinnedLeader() {
+    return pinnedLeader.get();
   }
 
   private void cleanupCandidateDir(File candidate) {

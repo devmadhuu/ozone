@@ -24,6 +24,7 @@ import static org.apache.hadoop.ozone.OzoneConsts.OZONE_DB_CHECKPOINT_HTTP_ENDPO
 import static org.apache.hadoop.ozone.recon.ReconConstants.RECON_OM_SNAPSHOT_DB;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -32,12 +33,21 @@ import static org.mockito.Mockito.when;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
+import org.apache.commons.compress.archivers.ArchiveOutputStream;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.hdds.server.http.HttpConfig;
+import org.apache.hadoop.hdds.utils.Archiver;
 import org.apache.hadoop.hdds.utils.HddsServerUtil;
 import org.apache.hadoop.hdds.utils.db.DBCheckpoint;
 import org.apache.hadoop.hdds.utils.db.InodeMetadataRocksDBCheckpoint;
+import org.apache.hadoop.hdds.utils.db.RocksDBCheckpoint;
 import org.apache.hadoop.ozone.om.helpers.ServiceInfo;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -124,6 +134,72 @@ public class TestReconRDBSnapshotProvider {
     assertEquals(RECON_OM_SNAPSHOT_DB + ".candidate",
         provider.getCandidateDir().getName());
     assertEquals(snapshotDir, provider.getCandidateDir().getParentFile());
+  }
+
+  @Test
+  public void testLeaderPinnedForEntireTransfer(@TempDir File snapshotDir)
+      throws IOException {
+    ServiceInfo leaderA = mock(ServiceInfo.class);
+    when(leaderA.getHostname()).thenReturn("om-leader-a");
+    ServiceInfo leaderB = mock(ServiceInfo.class);
+    when(leaderB.getHostname()).thenReturn("om-leader-b");
+
+    // Supplier resolves leaderA first, then leaderB, mimicking an OM failover
+    // during the transfer.
+    AtomicInteger supplierCalls = new AtomicInteger();
+    Supplier<ServiceInfo> supplier = () ->
+        supplierCalls.getAndIncrement() == 0 ? leaderA : leaderB;
+
+    List<String> leadersUsedPerPart = new ArrayList<>();
+
+    ReconRDBSnapshotProvider provider =
+        new ReconRDBSnapshotProvider(snapshotDir, null, false,
+            HttpConfig.Policy.HTTP_ONLY, false, true, supplier) {
+          @Override
+          public void downloadSnapshot(String leaderNodeID, File targetFile)
+              throws IOException {
+            // Mirror the production leader resolution: use the pinned leader,
+            // falling back to the supplier only when nothing is pinned.
+            ServiceInfo leader = getPinnedLeader();
+            if (leader == null) {
+              leader = supplier.get();
+            }
+            leadersUsedPerPart.add(leader.getHostname());
+            // First part is partial; the second carries the completion flag.
+            writeTar(targetFile, leadersUsedPerPart.size() > 1);
+          }
+
+          @Override
+          public DBCheckpoint getCheckpointFromUntarredDb(Path untarredDbDir) {
+            return new RocksDBCheckpoint(untarredDbDir);
+          }
+        };
+
+    provider.downloadDBSnapshotFromLeader("om-leader-a-node-id");
+
+    assertEquals(2, leadersUsedPerPart.size(),
+        "Test should exercise a two-part transfer");
+    assertTrue(leadersUsedPerPart.stream().allMatch("om-leader-a"::equals),
+        "All parts must come from the leader pinned at the start of the "
+            + "transfer, even if the resolved leader changes mid-transfer; "
+            + "leadersUsedPerPart=" + leadersUsedPerPart);
+    assertEquals(1, supplierCalls.get(),
+        "Leader should be resolved exactly once per transfer");
+    assertNull(provider.getPinnedLeader(),
+        "Pinned leader must be cleared after the transfer completes");
+  }
+
+  private void writeTar(File targetFile, boolean complete) throws IOException {
+    try (ArchiveOutputStream<TarArchiveEntry> out =
+             Archiver.tar(Files.newOutputStream(targetFile.toPath()))) {
+      if (complete) {
+        HddsServerUtil.includeRatisSnapshotCompleteFlag(out);
+      } else {
+        File tmp = File.createTempFile("recon-part", ".sst");
+        FileUtils.write(tmp, "partial", UTF_8);
+        Archiver.includeFile(tmp, "000100.sst", out);
+      }
+    }
   }
 
   @Test
