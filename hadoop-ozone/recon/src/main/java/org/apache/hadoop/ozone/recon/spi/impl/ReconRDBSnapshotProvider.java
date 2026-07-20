@@ -27,7 +27,6 @@ import static org.apache.hadoop.ozone.OzoneConsts.OZONE_DB_CHECKPOINT_INCLUDE_SN
 import static org.apache.hadoop.ozone.OzoneConsts.OZONE_DB_CHECKPOINT_REQUEST_FLUSH;
 import static org.apache.hadoop.ozone.recon.ReconConstants.RECON_OM_SNAPSHOT_DB;
 
-import com.google.common.annotations.VisibleForTesting;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -223,7 +222,6 @@ public class ReconRDBSnapshotProvider extends RDBSnapshotProvider {
     }
   }
 
-  @VisibleForTesting
   ServiceInfo getPinnedLeader() {
     return pinnedLeader.get();
   }
