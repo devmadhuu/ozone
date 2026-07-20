@@ -204,7 +204,6 @@ public class ReconRDBSnapshotProvider extends RDBSnapshotProvider {
     return new RocksDBCheckpoint(stablePath);
   }
 
-  @VisibleForTesting
   URL buildCheckpointUrl(ServiceInfo leader) throws IOException {
     Type portType = httpsEnabled ? Type.HTTPS : Type.HTTP;
     String scheme = httpsEnabled ? "https" : "http";
