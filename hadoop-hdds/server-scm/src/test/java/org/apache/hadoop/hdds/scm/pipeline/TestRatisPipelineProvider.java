@@ -33,7 +33,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 
 import java.io.File;
@@ -228,6 +227,12 @@ public class TestRatisPipelineProvider {
     OzoneConfiguration pipelineLimitConf = new OzoneConfiguration();
     pipelineLimitConf.setInt(OZONE_SCM_RATIS_PIPELINE_LIMIT, 1);
     init(0, pipelineLimitConf, StorageTier.DISK);
+    // init(0, ...) sets numPipelinePerDatanode=0 which would cause
+    // filterPipelineEngagement to exclude every datanode. Bump it here
+    // before creating the spy so filterPipelineEngagement sees a positive
+    // limit. The provider's datanodePipelineLimit config is still 0, so
+    // the *global* branch of exceedPipelineNumberLimit is what runs.
+    nodeManager.setNumPipelinePerDatanode(5);
     List<DatanodeDetails> diskAndSsdNodes = datanodeList.stream()
         .map(TestRatisPipelineProvider::datanodeInfoWithDiskAndSsd)
         .collect(Collectors.toList());
@@ -236,11 +241,6 @@ public class TestRatisPipelineProvider {
         .when(nodeManagerSpy).getNodes(any(NodeStatus.class));
     doAnswer(invocation -> datanodeInfoWithDiskAndSsd(invocation.getArgument(0)))
         .when(nodeManagerSpy).getDatanodeInfo(any(DatanodeDetails.class));
-    // per-DN pipelineLimit=0 makes filterPipelineEngagement exclude every
-    // node; return a positive limit from the spy so engagement filtering
-    // does not swallow all nodes. The per-DN pipeline limit in the
-    // provider config is still 0, so the *global* branch is what runs.
-    doReturn(5).when(nodeManagerSpy).pipelineLimit(any(DatanodeDetails.class));
     RatisPipelineProvider localProvider = new RatisPipelineProvider(
         nodeManagerSpy, stateManager, pipelineLimitConf, new EventQueue(),
         SCMContext.emptyContext());
