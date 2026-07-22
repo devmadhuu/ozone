@@ -235,6 +235,11 @@ public class TestRatisPipelineProvider {
         .when(nodeManagerSpy).getNodes(any(NodeStatus.class));
     doAnswer(invocation -> datanodeInfoWithDiskAndSsd(invocation.getArgument(0)))
         .when(nodeManagerSpy).getDatanodeInfo(any(DatanodeDetails.class));
+    // per-DN pipelineLimit=0 makes filterPipelineEngagement exclude every
+    // node; return a positive limit from the spy so engagement filtering
+    // does not swallow all nodes. The per-DN pipeline limit in the
+    // provider config is still 0, so the *global* branch is what runs.
+    doAnswer(invocation -> 5).when(nodeManagerSpy).pipelineLimit(any(DatanodeDetails.class));
     RatisPipelineProvider localProvider = new RatisPipelineProvider(
         nodeManagerSpy, stateManager, pipelineLimitConf, new EventQueue(),
         SCMContext.emptyContext());
