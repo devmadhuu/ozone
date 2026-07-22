@@ -111,27 +111,31 @@ public class RatisPipelineProvider
       return false;
     }
 
-    // TODO Adjusting Pipeline Limits To Each StorageTier
     PipelineStateManager pipelineStateManager = getPipelineStateManager();
-    int totalActivePipelines = pipelineStateManager
-        .getPipelines(replicationConfig, storageTier).size();
-    int closedPipelines = pipelineStateManager
-        .getPipelines(replicationConfig, PipelineState.CLOSED, storageTier).size();
-    int openPipelines = totalActivePipelines - closedPipelines;
-    // Check per-datanode pipeline limit
+    // Check per-datanode pipeline limit (StorageTier-aware).
     if (datanodePipelineLimit > 0) {
+      int totalActive = pipelineStateManager
+          .getPipelines(replicationConfig, storageTier).size();
+      int closed = pipelineStateManager
+          .getPipelines(replicationConfig, PipelineState.CLOSED, storageTier).size();
+      int openTierAware = totalActive - closed;
       int healthyNodeCount = getNodeManager()
           .getNodeCount(NodeStatus.inServiceHealthy());
       int allowedOpenPipelines = (datanodePipelineLimit * healthyNodeCount)
           / replicationConfig.getRequiredNodes();
-      return openPipelines >= allowedOpenPipelines;
+      return openTierAware >= allowedOpenPipelines;
     }
-    // Check global pipeline limit
+    // Check global pipeline limit (StorageTier-agnostic).
     if (pipelineNumberLimit > 0) {
+      int totalActiveAllTiers = pipelineStateManager
+          .getPipelines(replicationConfig).size();
+      int closedAllTiers = pipelineStateManager
+          .getPipelines(replicationConfig, PipelineState.CLOSED).size();
+      int openAllTiers = totalActiveAllTiers - closedAllTiers;
       int factorOnePipelineCount = pipelineStateManager
           .getPipelines(RatisReplicationConfig.getInstance(ReplicationFactor.ONE)).size();
       int allowedOpenPipelines = pipelineNumberLimit - factorOnePipelineCount;
-      return openPipelines >= allowedOpenPipelines;
+      return openAllTiers >= allowedOpenPipelines;
     }
     // No limits are set
     return false;
