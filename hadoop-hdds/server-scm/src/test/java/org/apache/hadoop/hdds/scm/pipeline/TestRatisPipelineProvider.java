@@ -33,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 
 import java.io.File;
@@ -239,7 +240,7 @@ public class TestRatisPipelineProvider {
     // node; return a positive limit from the spy so engagement filtering
     // does not swallow all nodes. The per-DN pipeline limit in the
     // provider config is still 0, so the *global* branch is what runs.
-    doAnswer(invocation -> 5).when(nodeManagerSpy).pipelineLimit(any(DatanodeDetails.class));
+    doReturn(5).when(nodeManagerSpy).pipelineLimit(any(DatanodeDetails.class));
     RatisPipelineProvider localProvider = new RatisPipelineProvider(
         nodeManagerSpy, stateManager, pipelineLimitConf, new EventQueue(),
         SCMContext.emptyContext());
