@@ -225,8 +225,7 @@ class PipelineStateMap {
     Objects.requireNonNull(replicationConfig, "ReplicationConfig cannot be null");
     Objects.requireNonNull(storageTier, "Pipeline storageTier cannot be null");
     return getPipelines(replicationConfig).stream()
-        .filter(pipeline -> Objects.equals(
-            pipeline.getSupportedStorageTier(), storageTier))
+        .filter(pipeline -> matchesStorageTier(pipeline, storageTier))
         .collect(Collectors.toList());
   }
 
@@ -246,9 +245,20 @@ class PipelineStateMap {
     Objects.requireNonNull(state, "Pipeline state cannot be null");
     Objects.requireNonNull(storageTier, "Pipeline storageTier cannot be null");
     return getPipelines(replicationConfig, state).stream()
-        .filter(pipeline -> Objects.equals(
-            pipeline.getSupportedStorageTier(), storageTier))
+        .filter(pipeline -> matchesStorageTier(pipeline, storageTier))
         .collect(Collectors.toList());
+  }
+
+  /**
+   * A pipeline with no supportedStorageTier (e.g. one created by an older
+   * SCM before this field was introduced, or restored from a legacy DB
+   * snapshot) is treated as matching any tier. This preserves backward
+   * compatibility during rolling upgrade: legacy pipelines remain usable
+   * until they are scrubbed and replaced by tier-tagged ones.
+   */
+  static boolean matchesStorageTier(Pipeline pipeline, StorageTier storageTier) {
+    final StorageTier pipelineTier = pipeline.getSupportedStorageTier();
+    return pipelineTier == null || Objects.equals(pipelineTier, storageTier);
   }
 
   /**
@@ -307,8 +317,7 @@ class PipelineStateMap {
           replicationConfig, Collections.emptyList()));
       if (excludeDns.isEmpty() && excludePipelines.isEmpty()) {
         return pipelines.stream()
-            .filter(pipeline -> Objects.equals(
-                pipeline.getSupportedStorageTier(), storageTier))
+            .filter(pipeline -> matchesStorageTier(pipeline, storageTier))
             .collect(Collectors.toList());
       }
     } else {
@@ -318,7 +327,7 @@ class PipelineStateMap {
     Iterator<Pipeline> iter = pipelines.iterator();
     while (iter.hasNext()) {
       Pipeline pipeline = iter.next();
-      if (!Objects.equals(pipeline.getSupportedStorageTier(), storageTier)) {
+      if (!matchesStorageTier(pipeline, storageTier)) {
         iter.remove();
         continue;
       }
