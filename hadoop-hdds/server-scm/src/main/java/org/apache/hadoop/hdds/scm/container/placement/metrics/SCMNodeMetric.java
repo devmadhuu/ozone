@@ -19,6 +19,7 @@ package org.apache.hadoop.hdds.scm.container.placement.metrics;
 
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Objects;
+import org.apache.hadoop.fs.StorageType;
 
 /**
  * SCM Node Metric that is used in the placement classes.
@@ -58,26 +59,35 @@ public class SCMNodeMetric implements DatanodeMetric<SCMNodeStat, Long>,
    */
   @Override
   public boolean isGreater(SCMNodeStat o) {
+    return isGreater(o, null);
+  }
+
+  /**
+   * Per-{@link StorageType} variant. When {@code storageType} is
+   * {@code null} the comparison uses the aggregate totals (same behaviour as
+   * {@link #isGreater(SCMNodeStat)}).
+   */
+  public boolean isGreater(SCMNodeStat o, StorageType storageType) {
     Objects.requireNonNull(o, "o == null");
 
     // if zero, replace with 1 for the division to work.
-    long thisDenominator = (this.stat.getCapacity().get() == 0)
-        ? 1 : this.stat.getCapacity().get();
-    long otherDenominator = (o.getCapacity().get() == 0)
-        ? 1 : o.getCapacity().get();
+    long thisDenominator = (this.stat.getCapacity(storageType).get() == 0)
+        ? 1 : this.stat.getCapacity(storageType).get();
+    long otherDenominator = (o.getCapacity(storageType).get() == 0)
+        ? 1 : o.getCapacity(storageType).get();
 
     float thisNodeWeight =
-        stat.getScmUsed().get() / (float) thisDenominator;
+        stat.getScmUsed(storageType).get() / (float) thisDenominator;
 
     float oNodeWeight =
-        o.getScmUsed().get() / (float) otherDenominator;
+        o.getScmUsed(storageType).get() / (float) otherDenominator;
 
     if (Math.abs(thisNodeWeight - oNodeWeight) > 0.000001) {
       return thisNodeWeight > oNodeWeight;
     }
     // if these nodes have similar weight then return the node with more
     // used space as the greater node.
-    return stat.getScmUsed().isGreater(o.getScmUsed().get());
+    return stat.getScmUsed(storageType).isGreater(o.getScmUsed(storageType).get());
   }
 
   /**
@@ -88,19 +98,26 @@ public class SCMNodeMetric implements DatanodeMetric<SCMNodeStat, Long>,
    */
   @Override
   public boolean isLess(SCMNodeStat o) {
+    return isLess(o, null);
+  }
+
+  /**
+   * Per-{@link StorageType} variant of {@link #isLess(SCMNodeStat)}.
+   */
+  public boolean isLess(SCMNodeStat o, StorageType storageType) {
     Objects.requireNonNull(o, "Argument cannot be null");
 
     // if zero, replace with 1 for the division to work.
-    long thisDenominator = (this.stat.getCapacity().get() == 0)
-        ? 1 : this.stat.getCapacity().get();
-    long otherDenominator = (o.getCapacity().get() == 0)
-        ? 1 : o.getCapacity().get();
+    long thisDenominator = (this.stat.getCapacity(storageType).get() == 0)
+        ? 1 : this.stat.getCapacity(storageType).get();
+    long otherDenominator = (o.getCapacity(storageType).get() == 0)
+        ? 1 : o.getCapacity(storageType).get();
 
     float thisNodeWeight =
-        stat.getScmUsed().get() / (float) thisDenominator;
+        stat.getScmUsed(storageType).get() / (float) thisDenominator;
 
     float oNodeWeight =
-        o.getScmUsed().get() / (float) otherDenominator;
+        o.getScmUsed(storageType).get() / (float) otherDenominator;
 
     if (Math.abs(thisNodeWeight - oNodeWeight) > 0.000001) {
       return thisNodeWeight < oNodeWeight;
@@ -108,7 +125,7 @@ public class SCMNodeMetric implements DatanodeMetric<SCMNodeStat, Long>,
 
     // if these nodes are have similar weight then return the node with less
     // used space as the lesser node.
-    return stat.getScmUsed().isLess(o.getScmUsed().get());
+    return stat.getScmUsed(storageType).isLess(o.getScmUsed(storageType).get());
   }
 
   /**
@@ -121,9 +138,17 @@ public class SCMNodeMetric implements DatanodeMetric<SCMNodeStat, Long>,
    */
   @Override
   public boolean isEqual(SCMNodeStat o) {
-    float thisNodeWeight = stat.getScmUsed().get() / (float)
-        stat.getCapacity().get();
-    float oNodeWeight = o.getScmUsed().get() / (float) o.getCapacity().get();
+    return isEqual(o, null);
+  }
+
+  /**
+   * Per-{@link StorageType} variant of {@link #isEqual(SCMNodeStat)}.
+   */
+  public boolean isEqual(SCMNodeStat o, StorageType storageType) {
+    float thisNodeWeight = stat.getScmUsed(storageType).get()
+        / (float) stat.getCapacity(storageType).get();
+    float oNodeWeight = o.getScmUsed(storageType).get()
+        / (float) o.getCapacity(storageType).get();
     return Math.abs(thisNodeWeight - oNodeWeight) < 0.000001;
   }
 

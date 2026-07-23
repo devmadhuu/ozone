@@ -53,6 +53,7 @@ import java.util.stream.Collectors;
 import javax.management.ObjectName;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.HddsConfigKeys;
+import org.apache.hadoop.hdds.client.StorageTypeUtils;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.conf.StorageUnit;
@@ -946,23 +947,11 @@ public class SCMNodeManager implements NodeManager {
    */
   @Override
   public SCMNodeStat getStats() {
-    long capacity = 0L;
-    long used = 0L;
-    long remaining = 0L;
-    long committed = 0L;
-    long freeSpaceToSpare = 0L;
-    long reserved = 0L;
-
+    SCMNodeStat aggregated = new SCMNodeStat();
     for (SCMNodeStat stat : getNodeStats().values()) {
-      capacity += stat.getCapacity().get();
-      used += stat.getScmUsed().get();
-      remaining += stat.getRemaining().get();
-      committed += stat.getCommitted().get();
-      freeSpaceToSpare += stat.getFreeSpaceToSpare().get();
-      reserved += stat.getReserved().get();
+      aggregated.add(stat);
     }
-    return new SCMNodeStat(capacity, used, remaining, committed,
-        freeSpaceToSpare, reserved);
+    return aggregated;
   }
 
   /**
@@ -1111,27 +1100,18 @@ public class SCMNodeManager implements NodeManager {
 
   private SCMNodeStat getNodeStatInternal(DatanodeDetails datanodeDetails) {
     try {
-      long capacity = 0L;
-      long used = 0L;
-      long remaining = 0L;
-      long committed = 0L;
-      long freeSpaceToSpare = 0L;
-      long reserved = 0L;
-
       final DatanodeInfo datanodeInfo = nodeStateManager
           .getNode(datanodeDetails);
       final List<StorageReportProto> storageReportProtos = datanodeInfo
           .getStorageReports();
-      for (StorageReportProto reportProto : storageReportProtos) {
-        capacity += reportProto.getCapacity();
-        used += reportProto.getScmUsed();
-        remaining += reportProto.getRemaining();
-        committed += reportProto.getCommitted();
-        freeSpaceToSpare += reportProto.getFreeSpaceToSpare();
-        reserved += reportProto.getReserved();
+      SCMNodeStat scmNodeStat = new SCMNodeStat();
+      for (StorageReportProto report : storageReportProtos) {
+        scmNodeStat.add(report.getCapacity(), report.getScmUsed(),
+            report.getRemaining(), report.getCommitted(),
+            report.getFreeSpaceToSpare(), report.getReserved(),
+            StorageTypeUtils.getFromProtobuf(report.getStorageType()));
       }
-      return new SCMNodeStat(capacity, used, remaining, committed,
-          freeSpaceToSpare, reserved);
+      return scmNodeStat;
     } catch (NodeNotFoundException e) {
       LOG.warn("Cannot generate NodeStat, datanode {} not found.", datanodeDetails);
       return null;
