@@ -21,6 +21,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import org.apache.hadoop.hdds.client.DefaultReplicationConfig;
+import org.apache.hadoop.hdds.client.OzoneStoragePolicy;
+import org.apache.hadoop.hdds.client.StoragePolicy;
 import org.apache.hadoop.hdds.protocol.StorageType;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.audit.Auditable;
@@ -48,6 +50,16 @@ public final class OmBucketArgs extends WithMetadata implements Auditable {
    * [RAM_DISK, SSD, DISK, ARCHIVE]
    */
   private final StorageType storageType;
+  /**
+   * StoragePolicy to be used for this bucket, if set.
+   */
+  private final StoragePolicy storagePolicy;
+  /**
+   * When set, controls whether block allocation on this bucket may fall
+   * back to the storage policy's fallback tier. {@code null} means the
+   * OM server-side default is used.
+   */
+  private final Boolean allowFallbackStoragePolicy;
 
   /**
    * Bucket encryption key info if encryption is enabled.
@@ -76,6 +88,8 @@ public final class OmBucketArgs extends WithMetadata implements Auditable {
     this.quotaInNamespaceSet = b.quotaInNamespaceSet;
     this.quotaInNamespace = quotaInNamespaceSet ? b.quotaInNamespace : OzoneConsts.QUOTA_RESET;
     this.bekInfo = b.bekInfo;
+    this.storagePolicy = b.storagePolicy;
+    this.allowFallbackStoragePolicy = b.allowFallbackStoragePolicy;
   }
 
   /**
@@ -108,6 +122,22 @@ public final class OmBucketArgs extends WithMetadata implements Auditable {
    */
   public StorageType getStorageType() {
     return storageType;
+  }
+
+  /**
+   * Returns the {@link StoragePolicy} to be applied, or {@code null} if
+   * this args does not carry one.
+   */
+  public StoragePolicy getStoragePolicy() {
+    return storagePolicy;
+  }
+
+  /**
+   * Returns the caller-supplied fallback flag, or {@code null} to leave
+   * the current bucket setting unchanged.
+   */
+  public Boolean getAllowFallbackStoragePolicy() {
+    return allowFallbackStoragePolicy;
   }
 
   /**
@@ -180,6 +210,13 @@ public final class OmBucketArgs extends WithMetadata implements Auditable {
     if (this.storageType != null) {
       auditMap.put(OzoneConsts.STORAGE_TYPE, this.storageType.name());
     }
+    if (this.storagePolicy != null) {
+      auditMap.put(OzoneConsts.STORAGE_POLICY, this.storagePolicy.toString());
+    }
+    if (this.allowFallbackStoragePolicy != null) {
+      auditMap.put(OzoneConsts.ALLOW_FALLBACK_STORAGE_POLICY,
+          String.valueOf(this.allowFallbackStoragePolicy));
+    }
     if (this.ownerName != null) {
       auditMap.put(OzoneConsts.OWNER, this.ownerName);
     }
@@ -222,6 +259,8 @@ public final class OmBucketArgs extends WithMetadata implements Auditable {
     private BucketEncryptionKeyInfo bekInfo;
     private DefaultReplicationConfig defaultReplicationConfig;
     private String ownerName;
+    private StoragePolicy storagePolicy;
+    private Boolean allowFallbackStoragePolicy;
 
     /**
      * Constructs a builder.
@@ -288,6 +327,16 @@ public final class OmBucketArgs extends WithMetadata implements Auditable {
       return this;
     }
 
+    public Builder setStoragePolicy(StoragePolicy policy) {
+      this.storagePolicy = policy;
+      return this;
+    }
+
+    public Builder setAllowFallbackStoragePolicy(Boolean allow) {
+      this.allowFallbackStoragePolicy = allow;
+      return this;
+    }
+
     /**
      * Constructs the OmBucketArgs.
      * @return instance of OmBucketArgs.
@@ -330,6 +379,12 @@ public final class OmBucketArgs extends WithMetadata implements Auditable {
     if (bekInfo != null) {
       builder.setBekInfo(OMPBHelper.convert(bekInfo));
     }
+    if (storagePolicy != null) {
+      builder.setStoragePolicy(OzoneStoragePolicy.toProto(storagePolicy));
+    }
+    if (allowFallbackStoragePolicy != null) {
+      builder.setAllowFallbackStoragePolicy(allowFallbackStoragePolicy);
+    }
 
     return builder.build();
   }
@@ -370,6 +425,14 @@ public final class OmBucketArgs extends WithMetadata implements Auditable {
     if (bucketArgs.hasBekInfo()) {
       builder.setBucketEncryptionKey(
           OMPBHelper.convert(bucketArgs.getBekInfo()));
+    }
+    if (bucketArgs.hasStoragePolicy()) {
+      builder.setStoragePolicy(
+          OzoneStoragePolicy.fromProto(bucketArgs.getStoragePolicy()));
+    }
+    if (bucketArgs.hasAllowFallbackStoragePolicy()) {
+      builder.setAllowFallbackStoragePolicy(
+          bucketArgs.getAllowFallbackStoragePolicy());
     }
 
     return builder;

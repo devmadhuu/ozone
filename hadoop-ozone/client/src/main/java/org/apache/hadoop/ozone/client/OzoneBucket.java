@@ -42,6 +42,7 @@ import org.apache.hadoop.hdds.client.OzoneQuota;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationFactor;
 import org.apache.hadoop.hdds.client.ReplicationType;
+import org.apache.hadoop.hdds.client.StoragePolicy;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.protocol.StorageType;
 import org.apache.hadoop.hdds.scm.client.HddsClientUtils;
@@ -93,6 +94,17 @@ public class OzoneBucket extends WithMetadata {
    * [RAM_DISK, SSD, DISK, ARCHIVE]
    */
   private StorageType storageType;
+
+  /**
+   * Storage policy configured for this bucket (may be {@code null}).
+   */
+  private StoragePolicy storagePolicy;
+
+  /**
+   * Whether block allocation on this bucket may fall back to the storage
+   * policy's fallback tier.
+   */
+  private Boolean allowFallbackStoragePolicy;
 
   /**
    * Bucket Version flag.
@@ -201,6 +213,8 @@ public class OzoneBucket extends WithMetadata {
       this.bucketLayout = builder.bucketLayout;
     }
     this.owner = builder.owner;
+    this.storagePolicy = builder.storagePolicy;
+    this.allowFallbackStoragePolicy = builder.allowFallbackStoragePolicy;
   }
 
   /**
@@ -238,6 +252,22 @@ public class OzoneBucket extends WithMetadata {
    */
   public StorageType getStorageType() {
     return storageType;
+  }
+
+  /**
+   * Returns the {@link StoragePolicy} configured for this bucket, or
+   * {@code null} if none.
+   */
+  public StoragePolicy getStoragePolicy() {
+    return storagePolicy;
+  }
+
+  /**
+   * Returns whether block allocation on this bucket may fall back to the
+   * storage policy's fallback tier.
+   */
+  public Boolean getAllowFallbackStoragePolicy() {
+    return allowFallbackStoragePolicy;
   }
 
   /**
@@ -1252,6 +1282,8 @@ public class OzoneBucket extends WithMetadata {
     private String owner;
     private long pendingDeleteBytes;
     private long pendingDeleteNamespace;
+    private StoragePolicy storagePolicy;
+    private Boolean allowFallbackStoragePolicy;
 
     protected Builder() {
     }
@@ -1285,6 +1317,16 @@ public class OzoneBucket extends WithMetadata {
 
     public Builder setStorageType(StorageType storageType) {
       this.storageType = storageType;
+      return this;
+    }
+
+    public Builder setStoragePolicy(StoragePolicy policy) {
+      this.storagePolicy = policy;
+      return this;
+    }
+
+    public Builder setAllowFallbackStoragePolicy(Boolean allow) {
+      this.allowFallbackStoragePolicy = allow;
       return this;
     }
 

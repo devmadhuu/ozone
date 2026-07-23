@@ -658,6 +658,14 @@ public class RpcClient implements ClientProtocol {
         .setBucketLayout(bucketLayout)
         .setOwner(owner);
 
+    if (bucketArgs.getStoragePolicy() != null) {
+      builder.setStoragePolicy(bucketArgs.getStoragePolicy());
+    }
+    if (bucketArgs.getAllowFallbackStoragePolicy() != null) {
+      builder.setAllowFallbackStoragePolicy(
+          bucketArgs.getAllowFallbackStoragePolicy());
+    }
+
     if (bucketArgs.getAcls() != null) {
       builder.acls().addAll(bucketArgs.getAcls());
     }
@@ -1340,6 +1348,8 @@ public class RpcClient implements ClientProtocol {
         .setBucketLayout(bucketInfo.getBucketLayout())
         .setOwner(bucketInfo.getOwner())
         .setDefaultReplicationConfig(bucketInfo.getDefaultReplicationConfig())
+        .setStoragePolicy(bucketInfo.getStoragePolicy())
+        .setAllowFallbackStoragePolicy(bucketInfo.getAllowFallbackStoragePolicy())
         .build();
   }
 
@@ -1374,6 +1384,8 @@ public class RpcClient implements ClientProtocol {
                 .setOwner(bucket.getOwner())
                 .setDefaultReplicationConfig(
                     bucket.getDefaultReplicationConfig())
+                .setStoragePolicy(bucket.getStoragePolicy())
+                .setAllowFallbackStoragePolicy(bucket.getAllowFallbackStoragePolicy())
                 .build())
         .collect(Collectors.toList());
   }

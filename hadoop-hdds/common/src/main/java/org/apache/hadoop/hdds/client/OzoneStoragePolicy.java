@@ -75,6 +75,26 @@ public enum OzoneStoragePolicy implements StoragePolicy {
   }
 
   /**
+   * Converts the provided {@link StoragePolicy} to its protobuf representation.
+   *
+   * @param storagePolicy the StoragePolicy to convert (must be an
+   *                      {@link OzoneStoragePolicy} instance).
+   * @return the corresponding StoragePolicyProto.
+   * @throws IllegalArgumentException if {@code storagePolicy} is {@code null}
+   *                                  or not an {@link OzoneStoragePolicy}.
+   */
+  public static StoragePolicyProto toProto(StoragePolicy storagePolicy) {
+    if (storagePolicy == null) {
+      throw new IllegalArgumentException("Error: StoragePolicy cannot be null.");
+    }
+    if (!(storagePolicy instanceof OzoneStoragePolicy)) {
+      throw new IllegalArgumentException(
+          "Error: Unsupported StoragePolicy type: " + storagePolicy.getName());
+    }
+    return ((OzoneStoragePolicy) storagePolicy).toProto();
+  }
+
+  /**
    * Converts a protobuf StoragePolicyProto to the corresponding OzoneStoragePolicy.
    * @param proto the StoragePolicyProto to convert.
    * @return the corresponding OzoneStoragePolicy.

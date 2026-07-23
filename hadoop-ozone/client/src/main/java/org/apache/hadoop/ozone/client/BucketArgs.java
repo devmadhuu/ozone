@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import net.jcip.annotations.Immutable;
 import org.apache.hadoop.hdds.client.DefaultReplicationConfig;
+import org.apache.hadoop.hdds.client.StoragePolicy;
 import org.apache.hadoop.hdds.protocol.StorageType;
 import org.apache.hadoop.ozone.OzoneAcl;
 import org.apache.hadoop.ozone.OzoneConsts;
@@ -50,6 +51,17 @@ public final class BucketArgs {
    * [RAM_DISK, SSD, DISK, ARCHIVE]
    */
   private final StorageType storageType;
+
+  /**
+   * Storage policy to be used for this bucket, if set.
+   */
+  private final StoragePolicy storagePolicy;
+
+  /**
+   * When set, controls whether block allocation on this bucket may fall
+   * back to the storage policy's fallback tier.
+   */
+  private final Boolean allowFallbackStoragePolicy;
 
   /**
    * Custom key/value metadata.
@@ -87,6 +99,8 @@ public final class BucketArgs {
     bucketLayout = b.bucketLayout;
     owner = b.owner;
     defaultReplicationConfig = b.defaultReplicationConfig;
+    storagePolicy = b.storagePolicy;
+    allowFallbackStoragePolicy = b.allowFallbackStoragePolicy;
   }
 
   /**
@@ -103,6 +117,22 @@ public final class BucketArgs {
    */
   public StorageType getStorageType() {
     return storageType;
+  }
+
+  /**
+   * Returns the {@link StoragePolicy} to be applied, or {@code null} if
+   * the caller did not set one.
+   */
+  public StoragePolicy getStoragePolicy() {
+    return storagePolicy;
+  }
+
+  /**
+   * Returns the caller-supplied fallback flag, or {@code null} to leave
+   * the OM's default in force.
+   */
+  public Boolean getAllowFallbackStoragePolicy() {
+    return allowFallbackStoragePolicy;
   }
 
   /**
@@ -201,6 +231,8 @@ public final class BucketArgs {
     private BucketLayout bucketLayout;
     private String owner;
     private DefaultReplicationConfig defaultReplicationConfig;
+    private StoragePolicy storagePolicy;
+    private Boolean allowFallbackStoragePolicy;
 
     public Builder() {
       quotaInBytes = OzoneConsts.QUOTA_RESET;
@@ -271,6 +303,16 @@ public final class BucketArgs {
     public BucketArgs.Builder setDefaultReplicationConfig(
         DefaultReplicationConfig defaultReplConfig) {
       defaultReplicationConfig = defaultReplConfig;
+      return this;
+    }
+
+    public BucketArgs.Builder setStoragePolicy(StoragePolicy policy) {
+      this.storagePolicy = policy;
+      return this;
+    }
+
+    public BucketArgs.Builder setAllowFallbackStoragePolicy(Boolean allow) {
+      this.allowFallbackStoragePolicy = allow;
       return this;
     }
 

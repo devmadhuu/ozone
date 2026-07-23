@@ -24,6 +24,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.hadoop.hdds.client.DefaultReplicationConfig;
+import org.apache.hadoop.hdds.client.OzoneStoragePolicy;
+import org.apache.hadoop.hdds.client.StoragePolicy;
 import org.apache.hadoop.hdds.protocol.StorageType;
 import org.apache.hadoop.hdds.utils.db.Codec;
 import org.apache.hadoop.hdds.utils.db.CopyObject;
@@ -66,6 +68,16 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
    * [RAM_DISK, SSD, DISK, ARCHIVE]
    */
   private final StorageType storageType;
+  /**
+   * Storage policy for this bucket (optional; overrides the legacy
+   * per-bucket StorageType when set).
+   */
+  private final StoragePolicy storagePolicy;
+  /**
+   * When true, block allocation on this bucket may fall back to the
+   * StoragePolicy's fallback tier when the creation tier has no capacity.
+   */
+  private final boolean allowFallbackStoragePolicy;
   /**
    * Creation time of bucket.
    */
@@ -128,6 +140,8 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
     this.bucketLayout = b.bucketLayout;
     this.owner = b.owner;
     this.defaultReplicationConfig = b.defaultReplicationConfig;
+    this.storagePolicy = b.storagePolicy;
+    this.allowFallbackStoragePolicy = b.allowFallbackStoragePolicy;
   }
 
   public static Codec<OmBucketInfo> getCodec() {
@@ -172,6 +186,22 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
    */
   public StorageType getStorageType() {
     return storageType;
+  }
+
+  /**
+   * Returns the {@link StoragePolicy} for this bucket, or {@code null} if
+   * none is configured.
+   */
+  public StoragePolicy getStoragePolicy() {
+    return storagePolicy;
+  }
+
+  /**
+   * Returns whether block allocation on this bucket may fall back to the
+   * StoragePolicy's fallback tier when the creation tier has no capacity.
+   */
+  public boolean getAllowFallbackStoragePolicy() {
+    return allowFallbackStoragePolicy;
   }
 
   /**
@@ -326,6 +356,10 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
         String.valueOf(this.isVersionEnabled));
     auditMap.put(OzoneConsts.STORAGE_TYPE,
         (this.storageType != null) ? this.storageType.name() : null);
+    auditMap.put(OzoneConsts.STORAGE_POLICY,
+        (this.storagePolicy != null) ? this.storagePolicy.toString() : null);
+    auditMap.put(OzoneConsts.ALLOW_FALLBACK_STORAGE_POLICY,
+        String.valueOf(this.allowFallbackStoragePolicy));
     auditMap.put(OzoneConsts.CREATION_TIME, String.valueOf(this.creationTime));
     auditMap.put(OzoneConsts.BUCKET_ENCRYPTION_KEY,
         (bekInfo != null) ? bekInfo.getKeyName() : null);
@@ -378,7 +412,9 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
         .setSnapshotUsedNamespace(snapshotUsedNamespace)
         .setBucketLayout(bucketLayout)
         .setOwner(owner)
-        .setDefaultReplicationConfig(defaultReplicationConfig);
+        .setDefaultReplicationConfig(defaultReplicationConfig)
+        .setStoragePolicy(storagePolicy)
+        .setAllowFallbackStoragePolicy(allowFallbackStoragePolicy);
   }
 
   /**
@@ -404,6 +440,8 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
     private DefaultReplicationConfig defaultReplicationConfig;
     private long snapshotUsedBytes;
     private long snapshotUsedNamespace;
+    private StoragePolicy storagePolicy;
+    private boolean allowFallbackStoragePolicy = true;
 
     public Builder() {
       acls = AclListBuilder.empty();
@@ -550,6 +588,16 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
       return this;
     }
 
+    public Builder setStoragePolicy(StoragePolicy policy) {
+      this.storagePolicy = policy;
+      return this;
+    }
+
+    public Builder setAllowFallbackStoragePolicy(boolean allow) {
+      this.allowFallbackStoragePolicy = allow;
+      return this;
+    }
+
     @Override
     protected void validate() {
       super.validate();
@@ -604,6 +652,10 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
     if (owner != null) {
       bib.setOwner(owner);
     }
+    if (storagePolicy != null) {
+      bib.setStoragePolicy(OzoneStoragePolicy.toProto(storagePolicy));
+    }
+    bib.setAllowFallbackStoragePolicy(allowFallbackStoragePolicy);
     return bib.build();
   }
 
@@ -673,6 +725,12 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
     if (bucketInfo.hasOwner()) {
       obib.setOwner(bucketInfo.getOwner());
     }
+    if (bucketInfo.hasStoragePolicy()) {
+      obib.setStoragePolicy(OzoneStoragePolicy.fromProto(bucketInfo.getStoragePolicy()));
+    }
+    if (bucketInfo.hasAllowFallbackStoragePolicy()) {
+      obib.setAllowFallbackStoragePolicy(bucketInfo.getAllowFallbackStoragePolicy());
+    }
     return obib;
   }
 
@@ -707,6 +765,8 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
         ", bucket='" + bucketName + "'" +
         ", isVersionEnabled='" + isVersionEnabled + "'" +
         ", storageType='" + storageType + "'" +
+        ", storagePolicy='" + storagePolicy + "'" +
+        ", allowFallbackStoragePolicy='" + allowFallbackStoragePolicy + "'" +
         ", creationTime='" + creationTime + "'" +
         ", usedBytes='" + usedBytes + "'" +
         ", usedNamespace='" + usedNamespace + "'" +

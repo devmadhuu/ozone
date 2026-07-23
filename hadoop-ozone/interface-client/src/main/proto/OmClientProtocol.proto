@@ -787,6 +787,8 @@ message BucketInfo {
     optional hadoop.hdds.DefaultReplicationConfig defaultReplicationConfig = 20;
     optional uint64 snapshotUsedBytes = 21;
     optional uint64 snapshotUsedNamespace = 22;
+    optional hadoop.hdds.StoragePolicyProto storagePolicy = 1000;
+    optional bool allowFallbackStoragePolicy = 1001;
 }
 
 enum BucketLayoutProto {
@@ -860,6 +862,8 @@ message BucketArgs {
     optional string ownerName = 10;
     optional hadoop.hdds.DefaultReplicationConfig defaultReplicationConfig = 11;
     optional BucketEncryptionInfoProto bekInfo = 12;
+    optional hadoop.hdds.StoragePolicyProto storagePolicy = 1000;
+    optional bool allowFallbackStoragePolicy = 1001;
 }
 
 message PrefixInfo {
