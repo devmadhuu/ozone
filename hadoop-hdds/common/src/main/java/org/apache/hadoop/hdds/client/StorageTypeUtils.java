@@ -89,6 +89,16 @@ public final class StorageTypeUtils {
    *
    * @return storageType int ID value
    */
+  /**
+   * Returns integer representation of the given filesystem {@link StorageType}.
+   *
+   * @return storageType int ID value
+   * @throws IllegalArgumentException if {@code storageType} has no protobuf mapping.
+   */
+  public static int getID(StorageType storageType) throws IllegalArgumentException {
+    return getStorageTypeProto(storageType).getNumber();
+  }
+
   public static int getIDFromProtobuf(@Nonnull HddsProtos.StorageTypeProto proto) throws
       IllegalArgumentException {
     switch (proto) {
