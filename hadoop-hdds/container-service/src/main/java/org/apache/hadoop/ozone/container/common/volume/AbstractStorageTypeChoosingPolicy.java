@@ -29,14 +29,26 @@ import org.apache.hadoop.ozone.container.common.interfaces.VolumeChoosingPolicy;
 public abstract class AbstractStorageTypeChoosingPolicy
     implements VolumeChoosingPolicy {
 
+  private StorageType defaultStorageType;
+
+  @Override
+  public void init(StorageType storageType) {
+    this.defaultStorageType = storageType;
+  }
+
   @Override
   @Deprecated
   public HddsVolume chooseVolume(List<HddsVolume> volumes,
       long maxContainerSize, StorageType storageType) throws IOException {
+    // If the caller did not specify a StorageType, filter by the configured
+    // default (if any). If both are absent, fall back to the original
+    // no-filter behaviour so tests that leave defaultStorageType unset still
+    // pass.
+    StorageType effective = (storageType != null) ? storageType : defaultStorageType;
     List<HddsVolume> candidates = volumes;
-    if (storageType != null) {
+    if (effective != null) {
       candidates = volumes.stream()
-          .filter(volume -> volume.getStorageType() == storageType)
+          .filter(volume -> volume.getStorageType() == effective)
           .collect(Collectors.toList());
     }
     return chooseVolumeInternal(candidates, maxContainerSize);

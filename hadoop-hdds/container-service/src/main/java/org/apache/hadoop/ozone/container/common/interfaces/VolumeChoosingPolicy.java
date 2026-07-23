@@ -31,6 +31,17 @@ import org.apache.hadoop.ozone.container.common.volume.HddsVolume;
 public interface VolumeChoosingPolicy {
 
   /**
+   * Set the default {@link StorageType} for the policy. Implementations that
+   * honour a "when the client didn't ask for a specific StorageType" default
+   * (for example, {@link org.apache.hadoop.ozone.container.common.volume.AbstractStorageTypeChoosingPolicy})
+   * should remember this value and use it in place of {@code null}.
+   *
+   * @param storageType default StorageType to be used by the policy.
+   */
+  default void init(StorageType storageType) {
+  }
+
+  /**
    * Choose a volume to place a container, optionally constraining the choice
    * to a specific storage type.
    *

@@ -17,9 +17,12 @@
 
 package org.apache.hadoop.ozone.container.common.volume;
 
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_DATANODE_DEFAULT_STORAGE_TYPE;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_DATANODE_DEFAULT_STORAGE_TYPE_DEFAULT;
 import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_DATANODE_VOLUME_CHOOSING_POLICY;
 
 import java.util.concurrent.locks.ReentrantLock;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.HddsConfigKeys;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.ozone.container.common.interfaces.VolumeChoosingPolicy;
@@ -43,7 +46,13 @@ public final class VolumeChoosingPolicyFactory {
     Class<? extends VolumeChoosingPolicy> policyClass = conf.getClass(
         HDDS_DATANODE_VOLUME_CHOOSING_POLICY,
         DEFAULT_VOLUME_CHOOSING_POLICY, VolumeChoosingPolicy.class);
-    return ReflectionUtils.newInstance(policyClass, new Class<?>[] {ReentrantLock.class}, LOCK);
+    VolumeChoosingPolicy policy = ReflectionUtils.newInstance(
+        policyClass, new Class<?>[] {ReentrantLock.class}, LOCK);
+    StorageType defaultStorageType = StorageType.parseStorageType(
+        conf.get(HDDS_DATANODE_DEFAULT_STORAGE_TYPE,
+            HDDS_DATANODE_DEFAULT_STORAGE_TYPE_DEFAULT));
+    policy.init(defaultStorageType);
+    return policy;
   }
 
   /**

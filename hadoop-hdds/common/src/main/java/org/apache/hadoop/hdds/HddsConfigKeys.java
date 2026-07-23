@@ -17,6 +17,8 @@
 
 package org.apache.hadoop.hdds;
 
+import org.apache.hadoop.fs.StorageType;
+
 /**
  * This class contains constants for configuration keys and default values
  * used in hdds.
@@ -436,6 +438,11 @@ public final class HddsConfigKeys {
       "hdds.datanode.kerberos.keytab.file";
   public static final String HDDS_METRICS_PERCENTILES_INTERVALS_KEY =
       "hdds.metrics.percentiles.intervals";
+
+  public static final String HDDS_DATANODE_DEFAULT_STORAGE_TYPE =
+      "hdds.datanode.default.storagetype";
+  public static final String HDDS_DATANODE_DEFAULT_STORAGE_TYPE_DEFAULT =
+      StorageType.DISK.toString();
 
   /** Do not instantiate. */
   private HddsConfigKeys() {
