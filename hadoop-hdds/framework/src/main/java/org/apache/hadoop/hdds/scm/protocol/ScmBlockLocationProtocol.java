@@ -21,7 +21,10 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
+import jakarta.annotation.Nonnull;
+import org.apache.hadoop.hdds.client.OzoneStoragePolicy;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
+import org.apache.hadoop.hdds.client.StoragePolicy;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationType;
@@ -73,21 +76,25 @@ public interface ScmBlockLocationProtocol extends Closeable {
    * Asks SCM where a block should be allocated. SCM responds with the
    * set of datanodes that should be used creating this block.
    *
-   * @param size              - size of the block.
-   * @param numBlocks         - number of blocks.
-   * @param replicationConfig - replicationConfiguration
-   * @param owner             - service owner of the new block
-   * @param excludeList       List of datanodes/containers to exclude during
-   *                          block
-   *                          allocation.
-   * @return allocated block accessing info (key, pipeline).
-   * @throws IOException
+   * <p>Backwards-compat overload that delegates to the StoragePolicy-aware
+   * signature using {@link OzoneStoragePolicy#getDefaultPolicy()} and
+   * {@code allowFallbackStoragePolicy=true}.
    */
   default List<AllocatedBlock> allocateBlock(long size, int numBlocks,
        ReplicationConfig replicationConfig, String owner,
        ExcludeList excludeList) throws IOException {
     return allocateBlock(size, numBlocks, replicationConfig, owner,
-        excludeList, null);
+        excludeList, null, OzoneStoragePolicy.getDefaultPolicy(), true);
+  }
+
+  /**
+   * Backwards-compat overload without {@link StoragePolicy}.
+   */
+  default List<AllocatedBlock> allocateBlock(long size, int numBlocks,
+      ReplicationConfig replicationConfig, String owner,
+      ExcludeList excludeList, String clientMachine) throws IOException {
+    return allocateBlock(size, numBlocks, replicationConfig, owner,
+        excludeList, clientMachine, OzoneStoragePolicy.getDefaultPolicy(), true);
   }
 
   /**
@@ -104,12 +111,19 @@ public interface ScmBlockLocationProtocol extends Closeable {
    *                          allocation.
    * @param clientMachine client address, depends, can be hostname or
    *                      ipaddress.
+   * @param storagePolicy              The storage policy to be used for block
+   *                                   allocation.
+   * @param allowFallbackStoragePolicy If true, allows fallback to the storage
+   *                                   policy's fallback tier when the creation
+   *                                   tier has no eligible datanodes.
    * @return allocated block accessing info (key, pipeline).
    * @throws IOException
    */
   List<AllocatedBlock> allocateBlock(long size, int numBlocks,
       ReplicationConfig replicationConfig, String owner,
-      ExcludeList excludeList, String clientMachine) throws IOException;
+      ExcludeList excludeList, String clientMachine,
+      @Nonnull StoragePolicy storagePolicy,
+      boolean allowFallbackStoragePolicy) throws IOException;
 
   /**
    * Delete blocks for a set of object keys.

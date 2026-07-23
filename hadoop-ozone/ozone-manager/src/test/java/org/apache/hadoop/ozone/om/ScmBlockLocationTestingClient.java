@@ -30,8 +30,10 @@ import java.util.UUID;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.hdds.client.ContainerBlockID;
+import jakarta.annotation.Nonnull;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.client.StandaloneReplicationConfig;
+import org.apache.hadoop.hdds.client.StoragePolicy;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor;
 import org.apache.hadoop.hdds.scm.AddSCMRequest;
@@ -119,7 +121,8 @@ public class ScmBlockLocationTestingClient implements ScmBlockLocationProtocol {
   @Override
   public List<AllocatedBlock> allocateBlock(long size, int num,
       ReplicationConfig config,
-      String owner, ExcludeList excludeList, String clientMachine)
+      String owner, ExcludeList excludeList, String clientMachine,
+      @Nonnull StoragePolicy storagePolicy, boolean allowFallbackStoragePolicy)
       throws IOException {
     DatanodeDetails datanodeDetails = randomDatanodeDetails();
     Pipeline pipeline = createPipeline(datanodeDetails);
@@ -128,6 +131,7 @@ public class ScmBlockLocationTestingClient implements ScmBlockLocationProtocol {
     AllocatedBlock.Builder abb =
         new AllocatedBlock.Builder()
             .setContainerBlockID(new ContainerBlockID(containerID, localID))
+            .setStorageTier(storagePolicy.getCreationTier())
             .setPipeline(pipeline);
     return Collections.singletonList(abb.build());
   }

@@ -30,7 +30,7 @@ import javax.management.ObjectName;
 import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.hdds.client.ContainerBlockID;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
-import org.apache.hadoop.hdds.client.StorageTier;
+import org.apache.hadoop.hdds.client.StoragePolicy;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.conf.StorageUnit;
 import org.apache.hadoop.hdds.scm.ScmConfig;
@@ -140,13 +140,17 @@ public class BlockManagerImpl implements BlockManager, BlockmanagerMXBean {
    * @param owner - Owner (service) of the container.
    * @param excludeList List of datanodes/containers to exclude during block
    *                    allocation.
+   * @param storagePolicy              The storage policy to use for allocation.
+   * @param allowFallbackStoragePolicy When true, retry on the fallback tier if
+   *                                   the creation tier has no eligible node.
    * @return Allocated block
    * @throws IOException on failure.
    */
   @Override
   public AllocatedBlock allocateBlock(final long size,
       ReplicationConfig replicationConfig,
-      String owner, ExcludeList excludeList)
+      String owner, ExcludeList excludeList,
+      StoragePolicy storagePolicy, boolean allowFallbackStoragePolicy)
       throws IOException {
     if (LOG.isTraceEnabled()) {
       LOG.trace("Size : {} , replicationConfig: {}", size, replicationConfig);
@@ -161,28 +165,26 @@ public class BlockManagerImpl implements BlockManager, BlockmanagerMXBean {
           INVALID_BLOCK_SIZE);
     }
 
-    // TODO: Implement pass storageTier(StoragePolicy) from API.
-    // For the old version client, it will not have a "default StoragePolicy",
-    // so its StorageTier will be null, we use the "default StorageTier" to
-    // write data for them. The value of the "default StorageTier" can be set
-    // via configuration, and the default is StorageTier.DISK.
-    //
-    // By default, if the Datanode Volume StorageType is not explicitly
-    // configured, it will be of type StorageType.DISK and therefore belong
-    // to a StorageTier.DISK tier, so for old clients the write process is
-    // unchanged if the Datanode Volume configuration is not changed.
-    StorageTier storageTier = StorageTier.getDefaultTier();
+    boolean isFallBack = false;
     ContainerInfo containerInfo = writableContainerFactory.getContainer(
-        size, replicationConfig, owner, excludeList, storageTier);
+        size, replicationConfig, owner, excludeList, storagePolicy.getCreationTier());
+    if (containerInfo == null && allowFallbackStoragePolicy
+        && storagePolicy.getCreationFallbackTier() != null
+        && storagePolicy.getCreationFallbackTier() != org.apache.hadoop.hdds.client.StorageTier.EMPTY) {
+      isFallBack = true;
+      containerInfo = writableContainerFactory.getContainer(size, replicationConfig, owner,
+          excludeList, storagePolicy.getCreationFallbackTier());
+    }
 
     if (containerInfo != null) {
-      return newBlock(containerInfo);
+      return newBlock(containerInfo, isFallBack);
     }
     // we have tried all strategies we know and but somehow we are not able
     // to get a container for this block. Log that info and return a null.
     LOG.error(
-        "Unable to allocate a block for the size: {}, replicationConfig: {}",
-        size, replicationConfig);
+        "Unable to allocate a block for the size: {}, replicationConfig: {}, storagePolicy: {}, " +
+            "allowFallbackStoragePolicy: {}",
+        size, replicationConfig, storagePolicy, allowFallbackStoragePolicy);
     return null;
   }
 
@@ -190,9 +192,10 @@ public class BlockManagerImpl implements BlockManager, BlockmanagerMXBean {
    * newBlock - returns a new block assigned to a container.
    *
    * @param containerInfo - Container Info.
+   * @param isFallBack whether this block was allocated on the fallback tier.
    * @return AllocatedBlock
    */
-  private AllocatedBlock newBlock(ContainerInfo containerInfo)
+  private AllocatedBlock newBlock(ContainerInfo containerInfo, boolean isFallBack)
       throws SCMException {
     try {
       final Pipeline pipeline = pipelineManager
@@ -201,7 +204,9 @@ public class BlockManagerImpl implements BlockManager, BlockmanagerMXBean {
       long containerID = containerInfo.getContainerID();
       AllocatedBlock.Builder abb =  new AllocatedBlock.Builder()
           .setContainerBlockID(new ContainerBlockID(containerID, localID))
-          .setPipeline(pipeline);
+          .setPipeline(pipeline)
+          .setIsFallBack(isFallBack)
+          .setStorageTier(containerInfo.getStorageTier());
       if (LOG.isTraceEnabled()) {
         LOG.trace("New block allocated : {} Container ID: {}", localID,
             containerID);
