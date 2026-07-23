@@ -127,6 +127,9 @@ import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolPro
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.StartReplicationManagerRequestProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.StopContainerBalancerRequestProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.StopReplicationManagerRequestProto;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.DatanodeStorageTypeUsageInfoProto;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.ListStorageTypeUsageInfoRequestProto;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.ListStorageTypeUsageInfoResponseProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.SuppressContainerRequestProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.SuppressContainerResponseProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.Type;
@@ -1340,6 +1343,16 @@ public final class StorageContainerLocationProtocolClientSideTranslatorPB
         submitRequest(Type.SuppressContainer, builder -> builder.setSuppressContainerRequest(request))
             .getSuppressContainerResponse();
     return response.getFailedContainerIDsList();
+  }
+
+  @Override
+  public List<DatanodeStorageTypeUsageInfoProto> listStorageTypeUsageInfo(
+      ListStorageTypeUsageInfoRequestProto requestProto) throws IOException {
+    ListStorageTypeUsageInfoResponseProto response =
+        submitRequest(Type.ListStorageTypeUsageInfo,
+            builder -> builder.setListStorageTypeUsageInfoRequestProto(requestProto))
+            .getListStorageTypeUsageInfoResponseProto();
+    return response.getDatanodeStorageTypeUsageInfoProtoList();
   }
 
   /**

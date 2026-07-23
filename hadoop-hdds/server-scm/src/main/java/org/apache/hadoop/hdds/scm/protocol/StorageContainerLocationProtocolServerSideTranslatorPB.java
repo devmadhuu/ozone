@@ -138,6 +138,9 @@ import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolPro
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.StopContainerBalancerResponseProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.StopReplicationManagerRequestProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.StopReplicationManagerResponseProto;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.DatanodeStorageTypeUsageInfoProto;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.ListStorageTypeUsageInfoRequestProto;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.ListStorageTypeUsageInfoResponseProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.SuppressContainerRequestProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.SuppressContainerResponseProto;
 import org.apache.hadoop.hdds.scm.DatanodeAdminError;
@@ -768,6 +771,14 @@ public final class StorageContainerLocationProtocolServerSideTranslatorPB
             .setCmdType(request.getCmdType())
             .setStatus(Status.OK)
             .setSuppressContainerResponse(suppressContainer(request.getSuppressContainerRequest()))
+            .build();
+      case ListStorageTypeUsageInfo:
+        return ScmContainerLocationResponse.newBuilder()
+            .setCmdType(request.getCmdType())
+            .setStatus(Status.OK)
+            .setListStorageTypeUsageInfoResponseProto(
+                getListStorageTypeUsageInfo(
+                    request.getListStorageTypeUsageInfoRequestProto()))
             .build();
       default:
         throw new IllegalArgumentException(
@@ -1454,6 +1465,15 @@ public final class StorageContainerLocationProtocolServerSideTranslatorPB
     List<Long> failedContainerIDs = impl.suppressContainers(request.getContainerIDsList(), request.getSuppress());
     return SuppressContainerResponseProto.newBuilder()
         .addAllFailedContainerIDs(failedContainerIDs)
+        .build();
+  }
+
+  public ListStorageTypeUsageInfoResponseProto getListStorageTypeUsageInfo(
+      ListStorageTypeUsageInfoRequestProto request) throws IOException {
+    List<DatanodeStorageTypeUsageInfoProto> usageInfoProtos =
+        impl.listStorageTypeUsageInfo(request);
+    return ListStorageTypeUsageInfoResponseProto.newBuilder()
+        .addAllDatanodeStorageTypeUsageInfoProto(usageInfoProtos)
         .build();
   }
 }

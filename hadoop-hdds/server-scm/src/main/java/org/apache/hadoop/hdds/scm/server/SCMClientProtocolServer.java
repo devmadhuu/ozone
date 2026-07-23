@@ -51,8 +51,10 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.fs.CommonConfigurationKeysPublic;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.client.StorageTier;
+import org.apache.hadoop.hdds.client.StorageTypeUtils;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.conf.ReconfigurationHandler;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
@@ -62,8 +64,16 @@ import org.apache.hadoop.hdds.protocol.proto.HddsProtos.DeletedBlocksTransaction
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.DeletedBlocksTransactionSummary;
 import org.apache.hadoop.hdds.protocol.proto.ReconfigureProtocolProtos.ReconfigureProtocolService;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.StorageReportProto;
+import org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState;
+import org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeState;
+import org.apache.hadoop.hdds.scm.container.placement.metrics.SCMNodeMetric;
+import org.apache.hadoop.hdds.scm.container.placement.metrics.SCMNodeStat;
+import org.apache.hadoop.ozone.ClientVersion;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.ContainerBalancerStatusInfoResponseProto;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.DatanodeStorageTypeUsageInfoProto;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.ListStorageTypeUsageInfoRequestProto;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.StorageTypeUsageInfoProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.DecommissionScmResponseProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.DecommissionScmResponseProto.Builder;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.StartContainerBalancerResponseProto;
@@ -1746,6 +1756,59 @@ public class SCMClientProtocolServer implements
       AUDIT.logWriteFailure(buildAuditMessageForFailure(SCMAction.RECONCILE_CONTAINER, auditMap, ex));
       throw ex;
     }
+  }
+
+  @Override
+  public List<DatanodeStorageTypeUsageInfoProto> listStorageTypeUsageInfo(
+      ListStorageTypeUsageInfoRequestProto requestProto) throws IOException {
+    List<DatanodeStorageTypeUsageInfoProto> usageInfoProtos = new ArrayList<>();
+    try {
+      getScm().checkAdminAccess(getRemoteUser(), true);
+    } catch (IOException e) {
+      LOG.error("Authorization failed", e);
+      throw e;
+    }
+    NodeOperationalState opState =
+        requestProto.hasOpState() ? requestProto.getOpState() : null;
+    NodeState health =
+        requestProto.hasState() ? requestProto.getState() : null;
+
+    List<DatanodeDetails> datanodeDetailsList =
+        scm.getScmNodeManager().getNodes(opState, health);
+
+    for (DatanodeDetails datanodeDetail : datanodeDetailsList) {
+      SCMNodeMetric scmNodeMetric = scm.getScmNodeManager().getNodeStat(datanodeDetail);
+      if (scmNodeMetric == null) {
+        continue;
+      }
+      DatanodeStorageTypeUsageInfoProto.Builder dnUsageInfo =
+          DatanodeStorageTypeUsageInfoProto.newBuilder();
+      dnUsageInfo.setDatanodeDetails(
+          datanodeDetail.toProto(ClientVersion.CURRENT.toProtoValue()));
+      SCMNodeStat scmNodeStat = scmNodeMetric.get();
+      for (StorageType storageType : StorageType.values()) {
+        try {
+          StorageTypeUtils.getStorageTypeProto(storageType); // validates it's a known type
+        } catch (IllegalArgumentException e) {
+          // StorageType has no proto mapping (e.g. LOCAL) — skip
+          continue;
+        }
+        long cap = scmNodeStat.getCapacity(storageType).get();
+        if (cap > 0) {
+          StorageTypeUsageInfoProto.Builder stb =
+              StorageTypeUsageInfoProto.newBuilder();
+          stb.setStorageType(StorageTypeUtils.getStorageTypeProto(storageType));
+          stb.setCapacity(cap);
+          stb.setUsed(scmNodeStat.getScmUsed(storageType).get());
+          stb.setRemaining(scmNodeStat.getRemaining(storageType).get());
+          stb.setCommitted(scmNodeStat.getCommitted(storageType).get());
+          stb.setFreeSpaceToSpare(scmNodeStat.getFreeSpaceToSpare(storageType).get());
+          dnUsageInfo.addStorageTypeUsageInfo(stb.build());
+        }
+      }
+      usageInfoProtos.add(dnUsageInfo.build());
+    }
+    return usageInfoProtos;
   }
 
   @Override
