@@ -21,6 +21,8 @@ import com.google.common.base.Strings;
 import java.io.IOException;
 import org.apache.hadoop.hdds.client.DefaultReplicationConfig;
 import org.apache.hadoop.hdds.client.OzoneQuota;
+import org.apache.hadoop.hdds.client.OzoneStoragePolicy;
+import org.apache.hadoop.hdds.client.StoragePolicy;
 import org.apache.hadoop.hdds.protocol.StorageType;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.client.BucketArgs;
@@ -68,6 +70,19 @@ public class CreateBucketHandler extends BucketHandler {
   @CommandLine.Mixin
   private SetSpaceQuotaOptions quotaOptions;
 
+  @Option(names = {"--storagepolicy", "-sp"},
+      description = "Bucket StoragePolicy. Allowed values: HOT, WARM, COLD, null. Default: WARM.",
+      defaultValue = "WARM")
+  private String storagePolicyStr;
+
+  @Option(names = {"--allowFallBackStoragePolicy", "-asp"},
+      description = "When true, allocation may fall back to the StoragePolicy's " +
+          "fallback tier if the creation tier is unavailable. Default: true.",
+      defaultValue = "true")
+  private String allowFallBackStoragePolicyStr;
+
+  private static final String NULL_STORAGE_POLICY = "null";
+
   /**
    * Executes create bucket.
    */
@@ -79,8 +94,14 @@ public class CreateBucketHandler extends BucketHandler {
       ownerName = UserGroupInformation.getCurrentUser().getShortUserName();
     }
 
+    StoragePolicy storagePolicy = parseStoragePolicy(storagePolicyStr);
+    Boolean allowFallBackStoragePolicy =
+        Boolean.valueOf(allowFallBackStoragePolicyStr);
+
     BucketArgs.Builder bb =
         new BucketArgs.Builder().setStorageType(StorageType.DEFAULT)
+            .setStoragePolicy(storagePolicy)
+            .setAllowFallbackStoragePolicy(allowFallBackStoragePolicy)
             .setVersioning(false).setOwner(ownerName);
     if (allowedBucketLayout != null) {
       bb.setBucketLayout(allowedBucketLayout);
@@ -125,6 +146,27 @@ public class CreateBucketHandler extends BucketHandler {
     if (isVerbose()) {
       OzoneBucket bucket = vol.getBucket(bucketName);
       printObjectAsJson(bucket);
+    }
+  }
+
+  /**
+   * Parse a user-supplied {@code --storagepolicy} value into an
+   * {@link OzoneStoragePolicy}. Returns {@code null} when the caller passed
+   * "null" (any case) to explicitly clear the bucket's StoragePolicy.
+   *
+   * @throws IllegalArgumentException if the value is not one of HOT, WARM,
+   *   COLD, or "null".
+   */
+  private static StoragePolicy parseStoragePolicy(String value) {
+    if (Strings.isNullOrEmpty(value)
+        || NULL_STORAGE_POLICY.equalsIgnoreCase(value)) {
+      return null;
+    }
+    try {
+      return OzoneStoragePolicy.valueOf(value.toUpperCase());
+    } catch (IllegalArgumentException e) {
+      throw new IllegalArgumentException("Invalid storage policy: " + value
+          + ". Allowed String values are: HOT, WARM, COLD, or null.");
     }
   }
 
