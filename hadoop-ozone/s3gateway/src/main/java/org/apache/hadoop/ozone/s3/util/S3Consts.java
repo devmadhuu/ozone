@@ -105,6 +105,10 @@ public final class S3Consts {
   public static final String IF_UNMODIFIED_SINCE_HEADER =
       "If-Unmodified-Since";
 
+  public static final String S3_STORAGE_CLASS_STANDARD_IA = "STANDARD_IA";
+  public static final String S3_STORAGE_CLASS_STANDARD = "STANDARD";
+  public static final String S3_STORAGE_CLASS_GLACIER = "GLACIER";
+
   //Never Constructed
   private S3Consts() {
 
