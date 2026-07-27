@@ -45,6 +45,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.commons.io.FileUtils;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.fs.SpaceUsageSource;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerDataProto.State;
@@ -99,6 +100,11 @@ public class DiskBalancerService extends BackgroundService {
   private long bandwidthInMB;
   private int parallelThread;
   private boolean stopAfterDiskEven;
+  /**
+   * StorageTypes to consider when balancing. Empty means balance all types.
+   * TODO: Support passing the storageTypes via user command.
+   */
+  private List<StorageType> storageTypes = new ArrayList<>();
   private DiskBalancerVersion version;
 
   // State field using proto enum
