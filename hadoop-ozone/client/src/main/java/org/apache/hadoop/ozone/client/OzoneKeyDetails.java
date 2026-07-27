@@ -22,7 +22,9 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import org.apache.hadoop.fs.FileEncryptionInfo;
+import jakarta.annotation.Nullable;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
+import org.apache.hadoop.hdds.client.StoragePolicy;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.client.io.OzoneInputStream;
 import org.apache.ratis.util.function.CheckedSupplier;
@@ -97,6 +99,20 @@ public class OzoneKeyDetails extends OzoneKey {
 
   public Long getGeneration() {
     return generation;
+  }
+
+  /**
+   * Returns the {@link StoragePolicy} associated with this key, or
+   * {@code null} if the key does not carry an explicit storage policy.
+   *
+   * <p>This method will be populated by a later patch (patch 16 —
+   * "Ozone create key support StoragePolicy"). Until that patch lands,
+   * it always returns {@code null}.
+   */
+  @Nullable
+  public StoragePolicy getStoragePolicy() {
+    // TODO: populate from OmKeyLocationInfo once patch 16 is applied.
+    return null;
   }
 
   /**

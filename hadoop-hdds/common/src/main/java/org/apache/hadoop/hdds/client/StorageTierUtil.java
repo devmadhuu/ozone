@@ -47,6 +47,25 @@ public final class StorageTierUtil {
     }
   }
 
+  /**
+   * Returns the {@link StorageType} corresponding to a uniform
+   * {@link StorageTier}.
+   *
+   * <p>Convenience wrapper around {@link StorageTier#getUniformStorageType()}
+   * that gives callers a single import point.
+   *
+   * @param storageTier a uniform StorageTier (DISK, SSD, ARCHIVE…)
+   * @return the underlying {@link StorageType}
+   * @throws IllegalArgumentException if {@code storageTier} is {@code null}
+   */
+  public static StorageType getStorageTypeForUniformStorageTier(
+      StorageTier storageTier) {
+    if (storageTier == null) {
+      throw new IllegalArgumentException("storageTier must not be null");
+    }
+    return storageTier.getUniformStorageType();
+  }
+
   public static List<StorageTier> findSupportedStorageTiers(
       List<Set<StorageType>> dnStorageTypes) {
     List<StorageTier> supportedStorageTiers = new ArrayList<>();

@@ -19,7 +19,9 @@ package org.apache.hadoop.hdds.scm.cli.storagepolicy;
 
 import org.apache.hadoop.hdds.cli.AdminSubcommand;
 import org.apache.hadoop.hdds.cli.HddsVersionProvider;
+import org.apache.hadoop.ozone.admin.OzoneAdmin;
 import org.kohsuke.MetaInfServices;
+import picocli.CommandLine;
 import picocli.CommandLine.Command;
 
 /**
@@ -34,7 +36,15 @@ import picocli.CommandLine.Command;
     versionProvider = HddsVersionProvider.class,
     subcommands = {
         UsageInfoSubCommand.class,
+        CheckStoragePolicySubCommand.class,
     })
 @MetaInfServices(AdminSubcommand.class)
 public class StoragePolicyCommands implements AdminSubcommand {
+
+  @CommandLine.ParentCommand
+  private OzoneAdmin parent;
+
+  public OzoneAdmin getParent() {
+    return parent;
+  }
 }
