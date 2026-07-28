@@ -84,8 +84,10 @@ public class ECBlockOutputStream extends BlockOutputStream {
       ContainerClientMetrics clientMetrics, StreamBufferArgs streamBufferArgs,
       Supplier<ExecutorService> executorServiceSupplier
   ) throws IOException {
+    // EC blocks do not target a specific storage type.
     super(blockID, -1, xceiverClientManager,
-        pipeline, bufferPool, config, token, clientMetrics, streamBufferArgs, executorServiceSupplier);
+        pipeline, bufferPool, config, token, clientMetrics, streamBufferArgs, executorServiceSupplier,
+        null);
     // In EC stream, there will be only one node in pipeline.
     this.datanodeDetails = pipeline.getClosestNode();
   }

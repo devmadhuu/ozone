@@ -156,7 +156,7 @@ public final class OzoneBucketStub extends OzoneBucket {
                 new ArrayList<>(), finalReplicationCon, getMetadata(), null,
                 () -> readKey(key), true,
                 UserGroupInformation.getCurrentUser().getShortUserName(),
-                tags
+                tags, null
             ));
             super.close();
           }
@@ -188,7 +188,7 @@ public final class OzoneBucketStub extends OzoneBucket {
                 System.currentTimeMillis(),
                 System.currentTimeMillis(),
                 new ArrayList<>(), finalReplicationCon, metadata, null,
-                () -> readKey(keyName), true, null, null
+                () -> readKey(keyName), true, null, null, null
             ));
             super.close();
           }
@@ -264,7 +264,7 @@ public final class OzoneBucketStub extends OzoneBucket {
                 new ArrayList<>(), rConfig, objectMetadata, null,
                 null, false,
                 UserGroupInformation.getCurrentUser().getShortUserName(),
-                tags
+                tags, null
             ));
           }
 
@@ -392,7 +392,8 @@ public final class OzoneBucketStub extends OzoneBucket {
           ozoneKeyDetails.getMetadata(),
           ozoneKeyDetails.isFile(),
           ozoneKeyDetails.getOwner(),
-          ozoneKeyDetails.getTags());
+          ozoneKeyDetails.getTags(),
+          ozoneKeyDetails.getStoragePolicy());
     } else {
       throw new OMException(ResultCodes.KEY_NOT_FOUND);
     }
@@ -448,7 +449,8 @@ public final class OzoneBucketStub extends OzoneBucket {
               key.getDataSize(),
               key.getCreationTime().getEpochSecond() * 1000,
               key.getModificationTime().getEpochSecond() * 1000,
-              key.getReplicationConfig(), key.isFile(), key.getOwner());
+              key.getReplicationConfig(), key.isFile(), key.getOwner(),
+              key.getStoragePolicy());
         }).collect(Collectors.toList());
 
     if (prevKey != null) {
@@ -575,7 +577,7 @@ public final class OzoneBucketStub extends OzoneBucket {
           keyToMultipartUpload.get(key).getMetadata(), null,
           () -> readKey(key), true,
           UserGroupInformation.getCurrentUser().getShortUserName(),
-          keyToMultipartUpload.get(key).getTags()
+          keyToMultipartUpload.get(key).getTags(), null
       ));
     }
 
@@ -780,7 +782,7 @@ public final class OzoneBucketStub extends OzoneBucket {
         new ArrayList<>(), replicationConfig, new HashMap<>(), null,
         () -> readKey(keyName), false,
         UserGroupInformation.getCurrentUser().getShortUserName(),
-        Collections.emptyMap()));
+        Collections.emptyMap(), null));
   }
 
   private void assertDoesNotExist(String keyName) throws OMException {

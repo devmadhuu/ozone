@@ -1105,6 +1105,8 @@ message KeyArgs {
     // the given ETag for the operation to succeed. This is used for
     // S3 conditional writes with the If-Match header.
     optional string expectedETag = 24;
+
+    optional hadoop.hdds.StoragePolicyProto storagePolicy = 1005;
 }
 
 message KeyLocation {
@@ -1198,6 +1200,8 @@ message KeyInfo {
   // This allows a key to be created an committed atomically if the original has not
   // been modified.
     optional uint64 expectedDataGeneration = 22;
+
+    optional hadoop.hdds.StoragePolicyProto storagePolicy = 1003;
 }
 
 // KeyInfoProtoLight is a lightweight subset of KeyInfo message containing

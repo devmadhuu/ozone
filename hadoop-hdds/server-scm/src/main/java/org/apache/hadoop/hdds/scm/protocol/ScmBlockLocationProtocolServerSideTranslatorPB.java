@@ -17,6 +17,7 @@
 
 package org.apache.hadoop.hdds.scm.protocol;
 
+import com.google.common.base.Preconditions;
 import com.google.protobuf.RpcController;
 import com.google.protobuf.ServiceException;
 import java.io.IOException;
@@ -195,10 +196,17 @@ public final class ScmBlockLocationProtocolServerSideTranslatorPB
       AllocateScmBlockRequestProto request, int clientVersion)
       throws IOException {
     OzoneStoragePolicy storagePolicy;
+    boolean allowFallback;
     if (request.hasStoragePolicy()) {
       storagePolicy = OzoneStoragePolicy.fromProto(request.getStoragePolicy());
+      // If the storagePolicy was specified, then the field allowFallBack must be specified.
+      Preconditions.checkArgument(request.hasAllowFallBack());
+      allowFallback = request.getAllowFallBack();
     } else {
+      // When the request comes from an old OM that does not support StoragePolicy,
+      // StoragePolicy will not be explicitly set. The default StoragePolicy is used here.
       storagePolicy = OzoneStoragePolicy.getDefaultPolicy();
+      allowFallback = false;
     }
     List<AllocatedBlock> allocatedBlocks =
         impl.allocateBlock(request.getSize(),
@@ -211,7 +219,7 @@ public final class ScmBlockLocationProtocolServerSideTranslatorPB
             ExcludeList.getFromProtoBuf(request.getExcludeList()),
             request.getClient(),
             storagePolicy,
-            request.getAllowFallBack());
+            allowFallback);
 
     AllocateScmBlockResponseProto.Builder builder =
         AllocateScmBlockResponseProto.newBuilder();
@@ -219,7 +227,8 @@ public final class ScmBlockLocationProtocolServerSideTranslatorPB
     if (allocatedBlocks.size() < request.getNumBlocks()) {
       throw new SCMException("Allocated " + allocatedBlocks.size() +
           " blocks. Requested " + request.getNumBlocks() + " blocks. StoragePolicy " +
-          storagePolicy, SCMException.ResultCodes.FAILED_TO_ALLOCATE_ENOUGH_BLOCKS);
+          storagePolicy + ", allow fallback StoragePolicy: " + allowFallback,
+          SCMException.ResultCodes.FAILED_TO_ALLOCATE_ENOUGH_BLOCKS);
     }
     for (AllocatedBlock block : allocatedBlocks) {
       AllocateBlockResponse.Builder blockBuilder = AllocateBlockResponse.newBuilder()

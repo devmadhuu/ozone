@@ -95,7 +95,7 @@ public final class StorageTypeUtils {
    * @return storageType int ID value
    * @throws IllegalArgumentException if {@code storageType} has no protobuf mapping.
    */
-  public static int getID(StorageType storageType) throws IllegalArgumentException {
+  public static int getID(@Nonnull StorageType storageType) throws IllegalArgumentException {
     return getStorageTypeProto(storageType).getNumber();
   }
 

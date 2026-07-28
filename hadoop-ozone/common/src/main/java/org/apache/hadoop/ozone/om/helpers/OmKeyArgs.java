@@ -21,11 +21,14 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.hadoop.hdds.client.OzoneStoragePolicy;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
+import org.apache.hadoop.hdds.client.StoragePolicy;
 import org.apache.hadoop.ozone.OzoneAcl;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.audit.Auditable;
@@ -62,6 +65,7 @@ public final class OmKeyArgs extends WithMetadata implements Auditable {
   // been modified.
   private Long expectedDataGeneration = null;
   private final String expectedETag;
+  private final @Nullable StoragePolicy storagePolicy;
 
   private OmKeyArgs(Builder b) {
     super(b);
@@ -84,6 +88,7 @@ public final class OmKeyArgs extends WithMetadata implements Auditable {
     this.tags = b.tags.build();
     this.expectedDataGeneration = b.expectedDataGeneration;
     this.expectedETag = b.expectedETag;
+    this.storagePolicy = b.storagePolicy;
   }
 
   public boolean getIsMultipartKey() {
@@ -170,6 +175,10 @@ public final class OmKeyArgs extends WithMetadata implements Auditable {
     return expectedETag;
   }
 
+  public @Nullable StoragePolicy getStoragePolicy() {
+    return storagePolicy;
+  }
+
   @Override
   public Map<String, String> toAuditMap() {
     Map<String, String> auditMap = new LinkedHashMap<>();
@@ -218,6 +227,9 @@ public final class OmKeyArgs extends WithMetadata implements Auditable {
     if (expectedETag != null) {
       builder.setExpectedETag(expectedETag);
     }
+    if (storagePolicy != null) {
+      builder.setStoragePolicy(OzoneStoragePolicy.toProto(storagePolicy));
+    }
     return builder.build();
   }
 
@@ -244,6 +256,7 @@ public final class OmKeyArgs extends WithMetadata implements Auditable {
     private final MapBuilder<String, String> tags;
     private Long expectedDataGeneration = null;
     private String expectedETag;
+    private StoragePolicy storagePolicy;
 
     public Builder() {
       this(AclListBuilder.empty());
@@ -290,6 +303,7 @@ public final class OmKeyArgs extends WithMetadata implements Auditable {
           obj.forceUpdateContainerCacheFromSCM;
       this.expectedDataGeneration = obj.expectedDataGeneration;
       this.expectedETag = obj.expectedETag;
+      this.storagePolicy = obj.storagePolicy;
       this.tags = MapBuilder.of(obj.tags);
       this.acls = AclListBuilder.of(obj.acls);
     }
@@ -427,6 +441,11 @@ public final class OmKeyArgs extends WithMetadata implements Auditable {
 
     public Builder setExpectedETag(String eTag) {
       this.expectedETag = eTag;
+      return this;
+    }
+
+    public Builder setStoragePolicy(StoragePolicy storagePolicy) {
+      this.storagePolicy = storagePolicy;
       return this;
     }
 

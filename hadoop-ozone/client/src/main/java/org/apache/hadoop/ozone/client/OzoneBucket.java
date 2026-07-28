@@ -529,6 +529,29 @@ public class OzoneBucket extends WithMetadata {
   }
 
   /**
+   * Creates a new key in the bucket.
+   *
+   * @param key               Name of the key to be created.
+   * @param size              Size of the data the key will point to.
+   * @param replicationConfig Replication configuration.
+   * @param keyMetadata       Custom key metadata
+   * @param tags              Custom key tags (used for S3 object tag)
+   * @param keyStoragePolicy  The storagePolicy of the Key
+   * @return OzoneOutputStream to which the data has to be written.
+   * @throws IOException
+   */
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  public OzoneOutputStream createKey(String key, long size,
+      ReplicationConfig replicationConfig,
+      Map<String, String> keyMetadata,
+      Map<String, String> tags, StoragePolicy keyStoragePolicy)
+      throws IOException {
+    return proxy
+        .createKey(volumeName, name, key, size, replicationConfig, keyMetadata, tags,
+            keyStoragePolicy);
+  }
+
+  /**
    * This API allows to atomically update an existing key. The key read before invoking this API
    * should remain unchanged for this key to be written. This is controlled by the generation
    * field in the existing Key param. If the key is replaced or updated the generation will change. If the
@@ -1633,7 +1656,8 @@ public class OzoneBucket extends WithMetadata {
         metadata,
         status.isFile(),
         keyInfo.getOwnerName(),
-        Collections.emptyMap());
+        Collections.emptyMap(),
+        null); // BasicOmKeyInfo does not carry StoragePolicy
   }
 
   /**
@@ -2104,7 +2128,7 @@ public class OzoneBucket extends WithMetadata {
             keyInfo.getDataSize(), keyInfo.getCreationTime(),
             keyInfo.getModificationTime(),
             keyInfo.getReplicationConfig(),
-            keyInfo.isFile(), keyInfo.getOwnerName());
+            keyInfo.isFile(), keyInfo.getOwnerName(), keyInfo.getStoragePolicy());
         keysResultList.add(ozoneKey);
       }
     }

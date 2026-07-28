@@ -30,7 +30,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.client.ContainerBlockID;
+import org.apache.hadoop.hdds.client.StorageTierUtil;
 import org.apache.hadoop.hdds.scm.ByteStringConversion;
 import org.apache.hadoop.hdds.scm.ContainerClientMetrics;
 import org.apache.hadoop.hdds.scm.OzoneClientConfig;
@@ -167,12 +169,26 @@ public class BlockOutputStreamEntryPool implements KeyMetadataAware {
             .setClientMetrics(clientMetrics)
             .setStreamBufferArgs(streamBufferArgs)
             .setExecutorServiceSupplier(executorServiceSupplier)
+            .setStorageType(getStorageType(subKeyInfo))
             .setForRetry(forRetry)
             .build();
   }
 
+  StorageType getStorageType(OmKeyLocationInfo keyInfo) {
+    StorageType storageType = null;
+    if (keyInfo.getStorageTier() != null) {
+      storageType = StorageTierUtil.getStorageTypeForUniformStorageTier(
+          keyInfo.getStorageTier());
+    }
+    return storageType;
+  }
+
   private synchronized void addKeyLocationInfo(OmKeyLocationInfo subKeyInfo, boolean forRetry) {
     Objects.requireNonNull(subKeyInfo.getPipeline(), "subKeyInfo.getPipeline() == null");
+    if (subKeyInfo.getStorageTier() != null) {
+      Preconditions.checkArgument(subKeyInfo.getStorageTier().isUniform(),
+          "Unsupported non-uniform storage tier" + subKeyInfo.getStorageTier());
+    }
     streamEntries.add(createStreamEntry(subKeyInfo, forRetry));
   }
 

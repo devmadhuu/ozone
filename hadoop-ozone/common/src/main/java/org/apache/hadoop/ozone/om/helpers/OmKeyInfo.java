@@ -32,8 +32,10 @@ import org.apache.hadoop.fs.FileChecksum;
 import org.apache.hadoop.fs.FileEncryptionInfo;
 import org.apache.hadoop.hdds.client.ContainerBlockID;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
+import org.apache.hadoop.hdds.client.OzoneStoragePolicy;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
+import org.apache.hadoop.hdds.client.StoragePolicy;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor;
 import org.apache.hadoop.hdds.utils.db.Codec;
 import org.apache.hadoop.hdds.utils.db.CopyObject;
@@ -111,6 +113,8 @@ public final class OmKeyInfo extends WithParentObjectId
   // been modified.
   private Long expectedDataGeneration = null;
 
+  private StoragePolicy storagePolicy;
+
   private OmKeyInfo(Builder b) {
     super(b);
     this.volumeName = b.volumeName;
@@ -129,6 +133,7 @@ public final class OmKeyInfo extends WithParentObjectId
     this.ownerName = b.ownerName;
     this.tags = b.tags.build();
     this.expectedDataGeneration = b.expectedDataGeneration;
+    this.storagePolicy = b.storagePolicy;
   }
 
   private static Codec<OmKeyInfo> newCodec(boolean ignorePipeline) {
@@ -183,6 +188,14 @@ public final class OmKeyInfo extends WithParentObjectId
 
   public void setExpectedDataGeneration(Long generation) {
     this.expectedDataGeneration = generation;
+  }
+
+  public @Nullable StoragePolicy getStoragePolicy() {
+    return storagePolicy;
+  }
+
+  public void setStoragePolicy(StoragePolicy storagePolicy) {
+    this.storagePolicy = storagePolicy;
   }
 
   public Long getExpectedDataGeneration() {
@@ -492,6 +505,7 @@ public final class OmKeyInfo extends WithParentObjectId
     private boolean isFile;
     private final MapBuilder<String, String> tags;
     private Long expectedDataGeneration = null;
+    private StoragePolicy storagePolicy;
 
     public Builder() {
       this.acls = AclListBuilder.empty();
@@ -514,6 +528,7 @@ public final class OmKeyInfo extends WithParentObjectId
       this.fileChecksum = obj.fileChecksum;
       this.isFile = obj.isFile;
       this.expectedDataGeneration = obj.expectedDataGeneration;
+      this.storagePolicy = obj.storagePolicy;
       this.tags = MapBuilder.of(obj.tags);
       obj.keyLocationVersions.forEach(keyLocationVersion ->
           this.omKeyLocationInfoGroups.add(
@@ -685,6 +700,11 @@ public final class OmKeyInfo extends WithParentObjectId
       return this;
     }
 
+    public Builder setStoragePolicy(StoragePolicy storagePolicy) {
+      this.storagePolicy = storagePolicy;
+      return this;
+    }
+
     @Override
     protected void validate() {
       super.validate();
@@ -807,6 +827,9 @@ public final class OmKeyInfo extends WithParentObjectId
     if (ownerName != null) {
       kb.setOwnerName(ownerName);
     }
+    if (storagePolicy != null) {
+      kb.setStoragePolicy(OzoneStoragePolicy.toProto(storagePolicy));
+    }
     return kb.build();
   }
 
@@ -860,6 +883,10 @@ public final class OmKeyInfo extends WithParentObjectId
 
     if (keyInfo.hasOwnerName()) {
       builder.setOwnerName(keyInfo.getOwnerName());
+    }
+    if (keyInfo.hasStoragePolicy()) {
+      builder.setStoragePolicy(
+          OzoneStoragePolicy.fromProto(keyInfo.getStoragePolicy()));
     }
     return builder;
   }

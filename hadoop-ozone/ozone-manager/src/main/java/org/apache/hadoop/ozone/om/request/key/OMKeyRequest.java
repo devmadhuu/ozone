@@ -56,6 +56,7 @@ import org.apache.hadoop.hdds.client.ContainerBlockID;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.client.OzoneStoragePolicy;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
+import org.apache.hadoop.hdds.client.StoragePolicy;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.scm.container.common.helpers.AllocatedBlock;
 import org.apache.hadoop.hdds.scm.container.common.helpers.ExcludeList;
@@ -180,6 +181,21 @@ public abstract class OMKeyRequest extends OMClientRequest {
     return resolvedArgs;
   }
 
+  protected @Nonnull StoragePolicy getStoragePolicy(OmBucketInfo bucketInfo, KeyArgs keyArgs) {
+    // If no StoragePolicy is specified in keyArgs when writing a key,
+    // then the key's StoragePolicy inherits the parent Object StoragePolicy.
+    // If the parent Object has no StoragePolicy the StoragePolicy will be the default StoragePolicy.
+    if (!keyArgs.hasStoragePolicy()) {
+      if (bucketInfo.getStoragePolicy() != null) {
+        return bucketInfo.getStoragePolicy();
+      } else {
+        return OzoneStoragePolicy.getDefaultPolicy();
+      }
+    } else {
+      return OzoneStoragePolicy.fromProto(keyArgs.getStoragePolicy());
+    }
+  }
+
   /**
    * This methods avoids multiple rpc calls to SCM by allocating multiple blocks
    * in one rpc call.
@@ -191,8 +207,10 @@ public abstract class OMKeyRequest extends OMClientRequest {
       ReplicationConfig replicationConfig, ExcludeList excludeList,
       long requestedSize, long scmBlockSize, int preallocateBlocksMax,
       boolean grpcBlockTokenEnabled, String serviceID, OMMetrics omMetrics,
-      boolean shouldSortDatanodes, UserInfo userInfo)
+      boolean shouldSortDatanodes, UserInfo userInfo,
+      @Nonnull StoragePolicy storagePolicy, Boolean allowFallbackStoragePolicy)
       throws IOException {
+    Objects.requireNonNull(storagePolicy, "storagePolicy == null");
     int dataGroupSize = replicationConfig instanceof ECReplicationConfig
         ? ((ECReplicationConfig) replicationConfig).getData() : 1;
     int numBlocks = (int) Math.min(preallocateBlocksMax,
@@ -207,12 +225,9 @@ public abstract class OMKeyRequest extends OMClientRequest {
     String remoteUser = getRemoteUser().getShortUserName();
     List<AllocatedBlock> allocatedBlocks;
     try {
-      // TODO: propagate a request-scoped StoragePolicy from the OM API layer.
-      // Until then, use the OM's configured default policy and allow fallback.
-      OzoneStoragePolicy storagePolicy = OzoneStoragePolicy.getDefaultPolicy();
       allocatedBlocks = scmClient.getBlockClient()
           .allocateBlock(scmBlockSize, numBlocks, replicationConfig, serviceID,
-              excludeList, clientMachine, storagePolicy, true);
+              excludeList, clientMachine, storagePolicy, allowFallbackStoragePolicy);
     } catch (SCMException ex) {
       omMetrics.incNumBlockAllocateCallFails();
       if (ex.getResult()
@@ -1000,6 +1015,11 @@ public abstract class OMKeyRequest extends OMClientRequest {
         builder.setExpectedDataGeneration(keyArgs.getExpectedDataGeneration());
       }
 
+      if (keyArgs.hasStoragePolicy()) {
+        builder.setStoragePolicy(
+            OzoneStoragePolicy.fromProto(keyArgs.getStoragePolicy()));
+      }
+
       return builder.build();
     }
 
@@ -1048,6 +1068,10 @@ public abstract class OMKeyRequest extends OMClientRequest {
             .setFile(true);
     if (keyArgs.hasExpectedDataGeneration()) {
       builder.setExpectedDataGeneration(keyArgs.getExpectedDataGeneration());
+    }
+    if (keyArgs.hasStoragePolicy()) {
+      builder.setStoragePolicy(
+          OzoneStoragePolicy.fromProto(keyArgs.getStoragePolicy()));
     }
     if (omPathInfo instanceof OMFileRequest.OMPathInfoWithFSO) {
       // FileTable metadata format

@@ -73,6 +73,7 @@ import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationConfigValidator;
 import org.apache.hadoop.hdds.client.ReplicationFactor;
 import org.apache.hadoop.hdds.client.ReplicationType;
+import org.apache.hadoop.hdds.client.StoragePolicy;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.conf.StorageUnit;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
@@ -1415,10 +1416,24 @@ public class RpcClient implements ClientProtocol {
       String volumeName, String bucketName, String keyName, long size,
       ReplicationConfig replicationConfig,
       Map<String, String> metadata, Map<String, String> tags) throws IOException {
+    return createKey(volumeName, bucketName, keyName, size, replicationConfig,
+        metadata, tags, null);
+  }
+
+  @Override
+  @SuppressWarnings("checkstyle:parameternumber")
+  public OzoneOutputStream createKey(
+      String volumeName, String bucketName, String keyName, long size,
+      ReplicationConfig replicationConfig,
+      Map<String, String> metadata, Map<String, String> tags,
+      StoragePolicy storagePolicy) throws IOException {
     String ownerName = getRealUserInfo().getShortUserName();
     OmKeyArgs.Builder builder = createWriteKeyArgsBuilder(volumeName,
         bucketName, keyName, size, replicationConfig, metadata, tags);
     builder.setOwnerName(ownerName);
+    if (storagePolicy != null) {
+      builder.setStoragePolicy(storagePolicy);
+    }
     return openOutputStream(builder.build(), size);
   }
 
@@ -1811,7 +1826,8 @@ public class RpcClient implements ClientProtocol {
               Collections.singletonMap(ETAG, key.getETag()),
               key.isFile(),
               key.getOwnerName(),
-              Collections.emptyMap()))
+              Collections.emptyMap(),
+              null)) // BasicOmKeyInfo does not carry StoragePolicy
           .collect(Collectors.toList());
     } else {
       List<OmKeyInfo> keys = ozoneManagerClient.listKeys(
@@ -1826,7 +1842,8 @@ public class RpcClient implements ClientProtocol {
               key.getMetadata(),
               key.isFile(),
               key.getOwnerName(),
-              key.getTags()))
+              key.getTags(),
+              key.getStoragePolicy()))
           .collect(Collectors.toList());
     }
   }
@@ -1860,7 +1877,7 @@ public class RpcClient implements ClientProtocol {
         keyInfo.getFileEncryptionInfo(),
         () -> getInputStreamWithRetryFunction(keyInfo), keyInfo.isFile(),
         keyInfo.getOwnerName(), keyInfo.getTags(),
-        keyInfo.getGeneration()
+        keyInfo.getGeneration(), keyInfo.getStoragePolicy()
     );
   }
 

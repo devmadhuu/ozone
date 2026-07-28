@@ -26,6 +26,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
 import java.util.function.Supplier;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.fs.Syncable;
 import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
@@ -70,6 +71,7 @@ public class BlockOutputStreamEntry extends OutputStream {
   private final ContainerClientMetrics clientMetrics;
   private final StreamBufferArgs streamBufferArgs;
   private final Supplier<ExecutorService> executorServiceSupplier;
+  private final StorageType storageType;
 
   /**
    * An indicator that this BlockOutputStream is created to handoff writes from another faulty BlockOutputStream.
@@ -96,6 +98,7 @@ public class BlockOutputStreamEntry extends OutputStream {
     this.clientMetrics = b.clientMetrics;
     this.streamBufferArgs = b.streamBufferArgs;
     this.executorServiceSupplier = b.executorServiceSupplier;
+    this.storageType = b.storageType;
     this.isHandlingRetry = b.forRetry;
   }
 
@@ -155,7 +158,7 @@ public class BlockOutputStreamEntry extends OutputStream {
   void createOutputStream() throws IOException {
     outputStream = new RatisBlockOutputStream(blockID, length, xceiverClientManager,
         pipeline, bufferPool, config, token, clientMetrics, streamBufferArgs,
-        executorServiceSupplier);
+        executorServiceSupplier, storageType);
   }
 
   ContainerClientMetrics getClientMetrics() {
@@ -414,6 +417,7 @@ public class BlockOutputStreamEntry extends OutputStream {
     private ContainerClientMetrics clientMetrics;
     private StreamBufferArgs streamBufferArgs;
     private Supplier<ExecutorService> executorServiceSupplier;
+    private StorageType storageType;
     private boolean forRetry;
 
     public Pipeline getPipeline() {
@@ -477,6 +481,11 @@ public class BlockOutputStreamEntry extends OutputStream {
 
     public Builder setExecutorServiceSupplier(Supplier<ExecutorService> executorServiceSupplier) {
       this.executorServiceSupplier = executorServiceSupplier;
+      return this;
+    }
+
+    public Builder setStorageType(StorageType storageType) {
+      this.storageType = storageType;
       return this;
     }
 

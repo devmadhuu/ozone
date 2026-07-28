@@ -41,7 +41,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.client.BlockID;
+import org.apache.hadoop.hdds.client.StorageTypeUtils;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.BlockData;
@@ -153,6 +155,7 @@ public class BlockOutputStream extends OutputStream {
   private int replicationIndex;
   private Pipeline pipeline;
   private final ContainerClientMetrics clientMetrics;
+  private final StorageType storageType;
   private boolean allowPutBlockPiggybacking;
   private boolean supportIncrementalChunkList;
 
@@ -166,6 +169,8 @@ public class BlockOutputStream extends OutputStream {
    * @param xceiverClientManager client manager that controls client
    * @param pipeline             pipeline where block will be written
    * @param bufferPool           pool of buffers
+   * @param storageType          the storage type the block should be written to,
+   *                             or {@code null} for any storage type
    */
   @SuppressWarnings("checkstyle:ParameterNumber")
   public BlockOutputStream(
@@ -177,7 +182,8 @@ public class BlockOutputStream extends OutputStream {
       OzoneClientConfig config,
       Token<? extends TokenIdentifier> token,
       ContainerClientMetrics clientMetrics, StreamBufferArgs streamBufferArgs,
-      Supplier<ExecutorService> blockOutputStreamResourceProvider
+      Supplier<ExecutorService> blockOutputStreamResourceProvider,
+      StorageType storageType
   ) throws IOException {
     this.xceiverClientFactory = xceiverClientManager;
     this.config = config;
@@ -234,6 +240,7 @@ public class BlockOutputStream extends OutputStream {
     ioException = new AtomicReference<>(null);
     this.checksum = new Checksum(config.getChecksumType(), config.getBytesPerChecksum(), true);
     this.clientMetrics = clientMetrics;
+    this.storageType = storageType;
     this.streamBufferArgs = streamBufferArgs;
     this.allowPutBlockPiggybacking = canEnablePutblockPiggybacking();
     LOG.debug("PutBlock piggybacking is {}", allowPutBlockPiggybacking);
@@ -963,11 +970,9 @@ public class BlockOutputStream extends OutputStream {
         byteBufferList = null;
       }
 
-      // TODO: Pass the requested storage type from allocation/storage policy
-      // once that context is wired through BlockOutputStream. Null preserves
-      // the current any-volume behavior.
       asyncReply = writeChunkAsync(xceiverClient, chunkInfo,
-          blockID.get(), data, tokenString, replicationIndex, blockData, close, null);
+          blockID.get(), data, tokenString, replicationIndex, blockData, close,
+          storageType == null ? null : StorageTypeUtils.getStorageTypeProto(storageType));
       CompletableFuture<ContainerCommandResponseProto>
           respFuture = asyncReply.getResponse();
       validateFuture = respFuture.thenApplyAsync(e -> {

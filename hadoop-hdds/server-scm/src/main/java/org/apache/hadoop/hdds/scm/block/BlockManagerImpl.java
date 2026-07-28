@@ -31,6 +31,7 @@ import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.hdds.client.ContainerBlockID;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.client.StoragePolicy;
+import org.apache.hadoop.hdds.client.StorageTier;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.conf.StorageUnit;
 import org.apache.hadoop.hdds.scm.ScmConfig;
@@ -166,14 +167,20 @@ public class BlockManagerImpl implements BlockManager, BlockmanagerMXBean {
     }
 
     boolean isFallBack = false;
-    ContainerInfo containerInfo = writableContainerFactory.getContainer(
-        size, replicationConfig, owner, excludeList, storagePolicy.getCreationTier());
-    if (containerInfo == null && allowFallbackStoragePolicy
-        && storagePolicy.getCreationFallbackTier() != null
-        && storagePolicy.getCreationFallbackTier() != org.apache.hadoop.hdds.client.StorageTier.EMPTY) {
-      isFallBack = true;
-      containerInfo = writableContainerFactory.getContainer(size, replicationConfig, owner,
-          excludeList, storagePolicy.getCreationFallbackTier());
+    ContainerInfo containerInfo = null;
+    try {
+      containerInfo = writableContainerFactory.getContainer(
+          size, replicationConfig, owner, excludeList,
+          storagePolicy.getCreationTier());
+    } catch (IOException e) {
+      // TODO StoragePolicy: it should be distinguished in detail which
+      //  exceptions need fallback.
+      if (allowFallbackStoragePolicy
+          && storagePolicy.getCreationFallbackTier() != StorageTier.EMPTY) {
+        isFallBack = true;
+        containerInfo = writableContainerFactory.getContainer(size, replicationConfig, owner,
+            excludeList, storagePolicy.getCreationFallbackTier());
+      }
     }
 
     if (containerInfo != null) {
