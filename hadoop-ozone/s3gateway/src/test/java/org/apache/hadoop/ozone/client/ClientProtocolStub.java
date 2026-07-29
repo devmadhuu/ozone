@@ -18,6 +18,7 @@
 package org.apache.hadoop.ozone.client;
 
 import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Collections;
@@ -623,6 +624,14 @@ public class ClientProtocolStub implements ClientProtocol {
                                       ReplicationConfig replicationConfig,
                                       boolean overWrite, boolean recursive)
       throws IOException {
+    return null;
+  }
+
+  @Override
+  public OzoneOutputStream createFile(String volumeName, String bucketName,
+      String keyName, long size, ReplicationConfig replicationConfig,
+      boolean overWrite, boolean recursive,
+      @Nullable StoragePolicy storagePolicy) throws IOException {
     return null;
   }
 

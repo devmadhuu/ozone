@@ -184,6 +184,11 @@ public class TestOzoneStoragePolicy {
       assertKeyInfo(keyInfo, 1, expectedPolicy, replicationConfig);
       assertSCMPipelineAndContainer(keyInfo, expectedPolicy.getCreationTier(), replicationConfig);
       assertDNContainerAndBlock(keyInfo, expectedPolicy.getCreationTier(), replicationConfig);
+
+      keyInfo = createRandomNameFileAndGet(replicationConfig, storagePolicy, false, bucketLayout);
+      assertKeyInfo(keyInfo, 1, expectedPolicy, replicationConfig);
+      assertSCMPipelineAndContainer(keyInfo, expectedPolicy.getCreationTier(), replicationConfig);
+      assertDNContainerAndBlock(keyInfo, expectedPolicy.getCreationTier(), replicationConfig);
     }
   }
 
@@ -465,6 +470,20 @@ public class TestOzoneStoragePolicy {
 
   private OmKeyInfo createRandomNameKeyAndGet(ReplicationConfig replicationConfig,
       StoragePolicy storagePolicy, boolean allowFallback, BucketLayout bucketLayout) throws IOException {
+    return createRandomKeyOrFile(storagePolicy, allowFallback, bucketLayout,
+        (bucket, keyName, length, policy) -> bucket.createKey(keyName, length,
+            replicationConfig, new HashMap<>(), new HashMap<>(), policy));
+  }
+
+  private OmKeyInfo createRandomNameFileAndGet(ReplicationConfig replicationConfig,
+      StoragePolicy storagePolicy, boolean allowFallback, BucketLayout bucketLayout) throws IOException {
+    return createRandomKeyOrFile(storagePolicy, allowFallback, bucketLayout,
+        (bucket, keyName, length, policy) -> bucket.createFile(keyName, length,
+            replicationConfig, false, false, policy));
+  }
+
+  private OmKeyInfo createRandomKeyOrFile(StoragePolicy storagePolicy,
+      boolean allowFallback, BucketLayout bucketLayout, KeyCreator keyCreator) throws IOException {
     String volumeName = UUID.randomUUID().toString();
     String bucketName = UUID.randomUUID().toString();
     String keyName = UUID.randomUUID().toString();
@@ -477,8 +496,8 @@ public class TestOzoneStoragePolicy {
     store.getVolume(volumeName).createBucket(bucketName, bucketArgs);
     OzoneBucket bucket = store.getVolume(volumeName).getBucket(bucketName);
 
-    OzoneOutputStream out = bucket.createKey(keyName, keyValue.getBytes(UTF_8).length,
-        replicationConfig, new HashMap<>(), new HashMap<>(), storagePolicy);
+    OzoneOutputStream out = keyCreator.create(bucket, keyName,
+        keyValue.getBytes(UTF_8).length, storagePolicy);
     out.write(keyValue.getBytes(UTF_8));
     out.close();
 
@@ -488,6 +507,11 @@ public class TestOzoneStoragePolicy {
         .setKeyName(keyName)
         .build();
     return ozoneManager.lookupKey(keyArgs);
+  }
+
+  private interface KeyCreator {
+    OzoneOutputStream create(OzoneBucket bucket, String keyName, int length,
+        StoragePolicy storagePolicy) throws IOException;
   }
 
   private OmKeyInfo createMultipartKeyAndGet(OzoneBucket bucket,

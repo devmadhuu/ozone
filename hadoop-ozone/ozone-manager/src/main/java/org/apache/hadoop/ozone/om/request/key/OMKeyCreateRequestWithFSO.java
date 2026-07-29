@@ -176,6 +176,7 @@ public class OMKeyCreateRequestWithFSO extends OMKeyCreateRequest {
       omFileInfo.appendNewBlocks(newLocationList, false);
 
       omBucketInfo = getBucketInfo(omMetadataManager, volumeName, bucketName);
+      checkAndLogMissingStoragePolicy(keyArgs, OMKeyRequest.LOG);
       // check bucket and volume quota
       long preAllocatedSpace =
           newLocationList.size() * ozoneManager.getScmBlockSize() * repConfig

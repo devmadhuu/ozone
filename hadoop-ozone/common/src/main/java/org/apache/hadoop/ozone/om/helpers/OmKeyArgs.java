@@ -256,7 +256,7 @@ public final class OmKeyArgs extends WithMetadata implements Auditable {
     private final MapBuilder<String, String> tags;
     private Long expectedDataGeneration = null;
     private String expectedETag;
-    private StoragePolicy storagePolicy;
+    private @Nullable StoragePolicy storagePolicy;
 
     public Builder() {
       this(AclListBuilder.empty());
@@ -444,7 +444,7 @@ public final class OmKeyArgs extends WithMetadata implements Auditable {
       return this;
     }
 
-    public Builder setStoragePolicy(StoragePolicy storagePolicy) {
+    public Builder setStoragePolicy(@Nullable StoragePolicy storagePolicy) {
       this.storagePolicy = storagePolicy;
       return this;
     }

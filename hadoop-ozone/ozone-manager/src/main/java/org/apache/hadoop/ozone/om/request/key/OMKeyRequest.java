@@ -196,6 +196,17 @@ public abstract class OMKeyRequest extends OMClientRequest {
     }
   }
 
+  protected void checkAndLogMissingStoragePolicy(KeyArgs keyArgs, Logger logger) {
+    if (!keyArgs.getIsMultipartKey() && !keyArgs.hasStoragePolicy()) {
+      // This is only possible during an OM upgrade when the new OM replays
+      // journals created by an old OM that did not set the StoragePolicy.
+      logger.warn("Key {} without a StoragePolicy. This should only occur during OM upgrade. "
+              + "If this occurs outside of an upgrade, there may be an issue with the journal "
+              + "or the key creation process.",
+          keyArgs.getKeyName());
+    }
+  }
+
   /**
    * This methods avoids multiple rpc calls to SCM by allocating multiple blocks
    * in one rpc call.

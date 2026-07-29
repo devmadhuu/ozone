@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import org.apache.hadoop.hdds.client.OzoneStoragePolicy;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.client.StoragePolicy;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
@@ -146,7 +147,8 @@ public class OMFileCreateRequest extends OMKeyRequest {
 
     KeyArgs.Builder newKeyArgs = keyArgs.toBuilder()
         .setModificationTime(Time.now()).setType(type).setFactor(factor)
-        .setDataSize(requestedSize);
+        .setDataSize(requestedSize)
+        .setStoragePolicy(OzoneStoragePolicy.toProto(storagePolicy));
 
     newKeyArgs.addAllKeyLocations(omKeyLocationInfoList.stream()
         .map(info -> info.getProtobuf(getOmRequest().getVersion()))
@@ -208,6 +210,8 @@ public class OMFileCreateRequest extends OMKeyRequest {
     Exception exception = null;
     Result result = null;
     try {
+      checkAndLogMissingStoragePolicy(keyArgs, LOG);
+
       // acquire lock
       mergeOmLockDetails(omMetadataManager.getLock()
           .acquireWriteLock(BUCKET_LOCK, volumeName, bucketName));

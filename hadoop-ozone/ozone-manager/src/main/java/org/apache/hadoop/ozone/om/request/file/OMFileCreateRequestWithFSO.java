@@ -163,6 +163,7 @@ public class OMFileCreateRequestWithFSO extends OMFileCreateRequest {
               bucketInfo.getDefaultReplicationConfig(),
               ozoneManager);
 
+      checkAndLogMissingStoragePolicy(keyArgs, LOG);
       OmKeyInfo omFileInfo = prepareFileInfo(omMetadataManager, keyArgs,
               dbFileInfo, keyArgs.getDataSize(), locations,
               getFileEncryptionInfo(keyArgs), ozoneManager.getPrefixManager(),
