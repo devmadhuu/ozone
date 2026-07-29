@@ -27,6 +27,7 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
+import org.apache.hadoop.hdds.client.OzoneStoragePolicy;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.client.StandaloneReplicationConfig;
@@ -66,6 +67,7 @@ public class TestOmMultipartKeyInfo {
     assertNotSame(subject, copy);
     assertEquals(subject, copy);
     assertEquals(replicationConfig, copy.getReplicationConfig());
+    assertEquals(OzoneStoragePolicy.HOT, copy.getStoragePolicy());
   }
 
   @Test
@@ -90,6 +92,7 @@ public class TestOmMultipartKeyInfo {
     // THEN
     assertEquals(subject, fromProto);
     assertEquals(replicationConfig, fromProto.getReplicationConfig());
+    assertEquals(OzoneStoragePolicy.HOT, fromProto.getStoragePolicy());
     assertEquals(subject.getOwnerName(), fromProto.getOwnerName());
     assertEquals(subject.getAcls(), fromProto.getAcls());
   }
@@ -154,6 +157,7 @@ public class TestOmMultipartKeyInfo {
             "mpu-owner",
             OzoneAcl.AclScope.ACCESS,
             IAccessAuthorizer.ACLType.WRITE)))
+        .setStoragePolicy(OzoneStoragePolicy.HOT)
         .setCreationTime(Time.now());
   }
 

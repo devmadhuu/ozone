@@ -29,9 +29,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.apache.hadoop.hdds.client.OzoneStoragePolicy;
 import org.apache.hadoop.ozone.OzoneAcl;
 import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
+import org.apache.hadoop.ozone.om.helpers.OmMultipartKeyInfo;
 import org.apache.hadoop.ozone.om.request.OMRequestTestUtils;
 import org.apache.hadoop.ozone.om.response.OMClientResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
@@ -96,13 +98,16 @@ public class TestS3InitiateMultipartUploadRequest
     assertNotNull(openMPUKeyInfo.getTags());
     assertEquals("tag-value1", openMPUKeyInfo.getTags().get("tag-key1"));
     assertEquals("tag-value2", openMPUKeyInfo.getTags().get("tag-key2"));
+    assertEquals(OzoneStoragePolicy.getDefaultPolicy(), openMPUKeyInfo.getStoragePolicy());
 
-    assertNotNull(omMetadataManager.getMultipartInfoTable().get(multipartKey));
+    OmMultipartKeyInfo multipartKeyInfo =
+        omMetadataManager.getMultipartInfoTable().get(multipartKey);
+    assertNotNull(multipartKeyInfo);
+    assertEquals(OzoneStoragePolicy.getDefaultPolicy(), multipartKeyInfo.getStoragePolicy());
 
     assertEquals(modifiedRequest.getInitiateMultiPartUploadRequest()
             .getKeyArgs().getMultipartUploadID(),
-        omMetadataManager.getMultipartInfoTable().get(multipartKey)
-            .getUploadID());
+        multipartKeyInfo.getUploadID());
 
     assertEquals(
         modifiedRequest.getInitiateMultiPartUploadRequest().getKeyArgs()

@@ -1133,9 +1133,14 @@ public abstract class OMKeyRequest extends OMClientRequest {
               "uploadId " + uploadID,
               OMException.ResultCodes.NO_SUCH_MULTIPART_UPLOAD_ERROR);
     }
+    KeyArgs.Builder partKeyArgs = args.toBuilder();
+    if (partKeyInfo.getStoragePolicy() != null) {
+      partKeyArgs.setStoragePolicy(
+          OzoneStoragePolicy.toProto(partKeyInfo.getStoragePolicy()));
+    }
     // For this upload part we don't need to check in KeyTable. As this
     // is not an actual key, it is a part of the key.
-    return createFileInfo(args, locations, partKeyInfo.getReplicationConfig(),
+    return createFileInfo(partKeyArgs.build(), locations, partKeyInfo.getReplicationConfig(),
             size, encInfo, prefixManager, omBucketInfo, omPathInfo,
             transactionLogIndex, objectID, configuration);
   }

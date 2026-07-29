@@ -26,7 +26,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
+import org.apache.hadoop.hdds.client.OzoneStoragePolicy;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
+import org.apache.hadoop.hdds.client.StoragePolicy;
 import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
 import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
 import org.apache.hadoop.ozone.OzoneConsts;
@@ -89,12 +91,16 @@ public class S3InitiateMultipartUploadRequest extends OMKeyRequest {
     String keyPath = keyArgs.getKeyName();
     keyPath = validateAndNormalizeKey(ozoneManager.getEnableFileSystemPaths(),
         keyPath, getBucketLayout());
+    final OmBucketInfo bucketInfo = ozoneManager
+        .getBucketInfo(keyArgs.getVolumeName(), keyArgs.getBucketName());
+    StoragePolicy storagePolicy = getStoragePolicy(bucketInfo, keyArgs);
 
     KeyArgs.Builder newKeyArgs = keyArgs.toBuilder()
             .setMultipartUploadID(
                 OMMultipartUploadUtils.getMultipartUploadId())
             .setModificationTime(Time.now())
-            .setKeyName(keyPath);
+            .setKeyName(keyPath)
+            .setStoragePolicy(OzoneStoragePolicy.toProto(storagePolicy));
 
     generateRequiredEncryptionInfo(keyArgs, newKeyArgs, ozoneManager);
 
@@ -187,6 +193,8 @@ public class S3InitiateMultipartUploadRequest extends OMKeyRequest {
               bucketInfo != null ?
                   bucketInfo.getDefaultReplicationConfig() :
                   null, ozoneManager);
+      StoragePolicy storagePolicy = keyArgs.hasStoragePolicy()
+          ? OzoneStoragePolicy.fromProto(keyArgs.getStoragePolicy()) : null;
 
       multipartKeyInfo = new OmMultipartKeyInfo.Builder()
           .setUploadID(keyArgs.getMultipartUploadID())
@@ -195,6 +203,7 @@ public class S3InitiateMultipartUploadRequest extends OMKeyRequest {
               replicationConfig)
           .setObjectID(objectID)
           .setUpdateID(transactionLogIndex)
+          .setStoragePolicy(storagePolicy)
           .build();
 
       omKeyInfo = new OmKeyInfo.Builder()
@@ -215,6 +224,7 @@ public class S3InitiateMultipartUploadRequest extends OMKeyRequest {
           .addAllMetadata(KeyValueUtil.getFromProtobuf(keyArgs.getMetadataList()))
           .setOwnerName(keyArgs.getOwnerName())
           .addAllTags(KeyValueUtil.getFromProtobuf(keyArgs.getTagsList()))
+          .setStoragePolicy(storagePolicy)
           .build();
 
       // Add to cache

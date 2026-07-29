@@ -201,6 +201,9 @@ public class BlockOutputStream extends OutputStream {
     if (replicationIndex > 0) {
       blkIDBuilder.setReplicaIndex(replicationIndex);
     }
+    if (storageType != null) {
+      blkIDBuilder.setStorageTypeID(StorageTypeUtils.getID(storageType));
+    }
     this.containerBlockData = BlockData.newBuilder().setBlockID(
         blkIDBuilder.build()).addMetadata(keyValue);
     this.pipeline = pipeline;

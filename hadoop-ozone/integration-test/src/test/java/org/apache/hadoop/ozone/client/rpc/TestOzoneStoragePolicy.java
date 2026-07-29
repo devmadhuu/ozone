@@ -29,10 +29,14 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.stream.Stream;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.client.DefaultReplicationConfig;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
@@ -45,6 +49,7 @@ import org.apache.hadoop.hdds.client.StorageTier;
 import org.apache.hadoop.hdds.client.StorageTierUtil;
 import org.apache.hadoop.hdds.client.StorageTypeUtils;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+import org.apache.hadoop.hdds.conf.StorageUnit;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
 import org.apache.hadoop.hdds.scm.XceiverClientGrpc;
 import org.apache.hadoop.hdds.scm.container.ContainerID;
@@ -57,8 +62,10 @@ import org.apache.hadoop.hdds.scm.pipeline.PipelineNotFoundException;
 import org.apache.hadoop.hdds.scm.server.StorageContainerManager;
 import org.apache.hadoop.hdds.scm.storage.ContainerProtocolCalls;
 import org.apache.hadoop.hdds.utils.IOUtils;
+import org.apache.hadoop.ozone.ClientConfigForTesting;
 import org.apache.hadoop.ozone.HddsDatanodeService;
 import org.apache.hadoop.ozone.MiniOzoneCluster;
+import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.client.BucketArgs;
 import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
@@ -73,6 +80,7 @@ import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.helpers.OmKeyArgs;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
+import org.apache.hadoop.ozone.om.helpers.OmMultipartInfo;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -314,6 +322,29 @@ public class TestOzoneStoragePolicy {
     }
   }
 
+  @ParameterizedTest
+  @MethodSource("replicaType")
+  public void testMultipartUploadWithStoragePolicy(
+      String type, String replication, BucketLayout bucketLayout) throws Exception {
+    ReplicationConfig replicationConfig = getReplicationConfig(type, replication);
+    ClientConfigForTesting.newBuilder(StorageUnit.MB).setBlockSize(16).applyTo(conf);
+    List<List<StorageType>> storageTypeList = new ArrayList<>();
+    for (int i = 0; i < replicationConfig.getRequiredNodes(); i++) {
+      storageTypeList.add(Arrays.asList(StorageType.DISK, StorageType.SSD, StorageType.ARCHIVE));
+    }
+    startCluster(conf, storageTypeList, replicationConfig.getRequiredNodes(), 3);
+
+    OzoneBucket bucket =
+        createBucketWithStoragePolicyAndGet(OzoneStoragePolicy.HOT, replicationConfig, bucketLayout);
+    OmKeyInfo keyInfo = createMultipartKeyAndGet(bucket, replicationConfig, null);
+    assertKeyInfo(keyInfo, 2, OzoneStoragePolicy.HOT, replicationConfig);
+    assertDNContainerAndBlock(keyInfo, OzoneStoragePolicy.HOT.getCreationTier(), replicationConfig);
+
+    keyInfo = createMultipartKeyAndGet(bucket, replicationConfig, OzoneStoragePolicy.COLD);
+    assertKeyInfo(keyInfo, 2, OzoneStoragePolicy.COLD, replicationConfig);
+    assertDNContainerAndBlock(keyInfo, OzoneStoragePolicy.COLD.getCreationTier(), replicationConfig);
+  }
+
   private void closeAllPipelines(ReplicationConfig replicationConfig) throws Exception {
     StorageContainerManager scm = cluster.getStorageContainerManager();
     scm.getPipelineManager().getPipelines(replicationConfig, Pipeline.PipelineState.OPEN)
@@ -454,6 +485,32 @@ public class TestOzoneStoragePolicy {
     OmKeyArgs keyArgs = new OmKeyArgs.Builder()
         .setVolumeName(volumeName)
         .setBucketName(bucketName)
+        .setKeyName(keyName)
+        .build();
+    return ozoneManager.lookupKey(keyArgs);
+  }
+
+  private OmKeyInfo createMultipartKeyAndGet(OzoneBucket bucket,
+      ReplicationConfig replicationConfig, StoragePolicy storagePolicy) throws IOException {
+    String keyName = UUID.randomUUID().toString();
+    OmMultipartInfo multipartInfo = bucket.initiateMultipartUpload(
+        keyName, replicationConfig, Collections.emptyMap(), Collections.emptyMap(), storagePolicy);
+    Map<Integer, String> parts = new TreeMap<>();
+    byte[] data = new byte[OzoneConsts.OM_MULTIPART_MIN_SIZE];
+    Arrays.fill(data, (byte) 1);
+    for (int partNumber = 1; partNumber <= 2; partNumber++) {
+      OzoneOutputStream out = bucket.createMultipartKey(
+          keyName, data.length, partNumber, multipartInfo.getUploadID());
+      out.write(data);
+      out.getMetadata().put(OzoneConsts.ETAG, DigestUtils.md5Hex(data));
+      out.close();
+      parts.put(partNumber, out.getCommitUploadPartInfo().getETag());
+    }
+    bucket.completeMultipartUpload(keyName, multipartInfo.getUploadID(), parts);
+
+    OmKeyArgs keyArgs = new OmKeyArgs.Builder()
+        .setVolumeName(bucket.getVolumeName())
+        .setBucketName(bucket.getName())
         .setKeyName(keyName)
         .build();
     return ozoneManager.lookupKey(keyArgs);

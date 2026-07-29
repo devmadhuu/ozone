@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.apache.hadoop.hdds.client.OzoneStoragePolicy;
 import org.apache.hadoop.ozone.OzoneAcl;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
@@ -117,6 +118,7 @@ public class TestS3InitiateMultipartUploadRequestWithFSO
     assertNotNull(omKeyInfo.getTags());
     assertEquals("tag-value1", omKeyInfo.getTags().get("tag-key1"));
     assertEquals("tag-value2", omKeyInfo.getTags().get("tag-key2"));
+    assertEquals(OzoneStoragePolicy.getDefaultPolicy(), omKeyInfo.getStoragePolicy());
 
     OmMultipartKeyInfo omMultipartKeyInfo = omMetadataManager
             .getMultipartInfoTable().get(multipartFileKey);
@@ -125,6 +127,7 @@ public class TestS3InitiateMultipartUploadRequestWithFSO
     assertEquals(parentID,
             omMultipartKeyInfo.getParentID(),
         "ParentId mismatches!");
+    assertEquals(OzoneStoragePolicy.getDefaultPolicy(), omMultipartKeyInfo.getStoragePolicy());
 
     assertEquals(modifiedRequest.getInitiateMultiPartUploadRequest()
             .getKeyArgs().getMultipartUploadID(),
