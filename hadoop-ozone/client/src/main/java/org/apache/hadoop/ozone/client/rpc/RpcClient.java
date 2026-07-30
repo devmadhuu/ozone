@@ -1898,7 +1898,7 @@ public class RpcClient implements ClientProtocol {
               key.isFile(),
               key.getOwnerName(),
               Collections.emptyMap(),
-              null)) // BasicOmKeyInfo does not carry StoragePolicy
+              key.getStoragePolicy()))
           .collect(Collectors.toList());
     } else {
       List<OmKeyInfo> keys = ozoneManagerClient.listKeys(
@@ -2336,7 +2336,8 @@ public class RpcClient implements ClientProtocol {
         new OzoneMultipartUploadPartListParts(
             omMultipartUploadListParts.getReplicationConfig(),
             omMultipartUploadListParts.getNextPartNumberMarker(),
-            omMultipartUploadListParts.isTruncated());
+            omMultipartUploadListParts.isTruncated(),
+            omMultipartUploadListParts.getStoragePolicy());
 
     for (OmPartInfo omPartInfo : omMultipartUploadListParts.getPartInfoList()) {
       ozoneMultipartUploadPartListParts.addPart(

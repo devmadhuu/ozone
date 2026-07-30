@@ -22,6 +22,7 @@ import java.util.List;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationFactor;
 import org.apache.hadoop.hdds.client.ReplicationType;
+import org.apache.hadoop.hdds.client.StoragePolicy;
 
 /**
  * Class that represents Multipart upload List parts response.
@@ -40,6 +41,7 @@ public class OzoneMultipartUploadPartListParts {
   // returned in the MaxParts element.
   private boolean truncated;
   private List<PartInfo> partInfoList = new ArrayList<>();
+  private StoragePolicy storagePolicy;
 
   @Deprecated
   public OzoneMultipartUploadPartListParts(ReplicationType type,
@@ -52,9 +54,15 @@ public class OzoneMultipartUploadPartListParts {
 
   public OzoneMultipartUploadPartListParts(ReplicationConfig replicationConfig,
                                            int nextMarker, boolean truncate) {
+    this(replicationConfig, nextMarker, truncate, null);
+  }
+
+  public OzoneMultipartUploadPartListParts(ReplicationConfig replicationConfig,
+      int nextMarker, boolean truncate, StoragePolicy storagePolicy) {
     this.nextPartNumberMarker = nextMarker;
     this.truncated = truncate;
     this.replicationConfig = replicationConfig;
+    this.storagePolicy = storagePolicy;
   }
 
   public void addAllParts(List<PartInfo> partInfos) {
@@ -91,6 +99,10 @@ public class OzoneMultipartUploadPartListParts {
 
   public ReplicationConfig getReplicationConfig() {
     return replicationConfig;
+  }
+
+  public StoragePolicy getStoragePolicy() {
+    return storagePolicy;
   }
 
   /**

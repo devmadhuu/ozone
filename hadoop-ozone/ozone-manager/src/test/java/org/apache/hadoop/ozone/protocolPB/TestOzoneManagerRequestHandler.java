@@ -26,6 +26,7 @@ import java.util.stream.IntStream;
 import org.apache.hadoop.crypto.CipherSuite;
 import org.apache.hadoop.crypto.CryptoProtocolVersion;
 import org.apache.hadoop.fs.FileEncryptionInfo;
+import org.apache.hadoop.hdds.client.OzoneStoragePolicy;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
@@ -219,13 +220,14 @@ public class TestOzoneManagerRequestHandler {
   }
 
   /**
-   * Test to verify BasicOmKeyInfo encryption field works in listKeysLight.
+   * Test BasicOmKeyInfo fields used by listKeysLight.
    */
   @Test
-  public void testListKeysLightEncryptionFromOmKeyInfo() throws IOException {
+  public void testListKeysLightFieldsFromOmKeyInfo() throws IOException {
     // Create OmKeyInfo objects with and without FileEncryptionInfo
     OmKeyInfo encryptedOmKeyInfo = createOmKeyInfoWithEncryption("encrypted-key", true);
     OmKeyInfo normalOmKeyInfo = createOmKeyInfoWithEncryption("normal-key", false);
+    encryptedOmKeyInfo.setStoragePolicy(OzoneStoragePolicy.COLD);
 
     // Convert to BasicOmKeyInfo
     BasicOmKeyInfo encryptedBasicKey = BasicOmKeyInfo.fromOmKeyInfo(encryptedOmKeyInfo);
@@ -233,6 +235,9 @@ public class TestOzoneManagerRequestHandler {
 
     Assertions.assertTrue(encryptedBasicKey.isEncrypted());
     Assertions.assertFalse(normalBasicKey.isEncrypted());
+    Assertions.assertEquals(OzoneStoragePolicy.COLD,
+        encryptedBasicKey.getStoragePolicy());
+    Assertions.assertNull(normalBasicKey.getStoragePolicy());
 
     List<BasicOmKeyInfo> keyInfos = Arrays.asList(encryptedBasicKey, normalBasicKey);
     OzoneManagerRequestHandler requestHandler = getRequestHandler(10);
@@ -250,6 +255,10 @@ public class TestOzoneManagerRequestHandler {
     Assertions.assertEquals(2, basicKeyInfoList.size());
     Assertions.assertTrue(basicKeyInfoList.get(0).getIsEncrypted(), "encrypted-key should have isEncrypted=true");
     Assertions.assertFalse(basicKeyInfoList.get(1).getIsEncrypted(), "normal-key should have isEncrypted=false");
+    Assertions.assertEquals(OzoneStoragePolicy.COLD,
+        BasicOmKeyInfo.getFromProtobuf("volume", "bucket",
+            basicKeyInfoList.get(0)).getStoragePolicy());
+    Assertions.assertFalse(basicKeyInfoList.get(1).hasStoragePolicy());
   }
 
   /**

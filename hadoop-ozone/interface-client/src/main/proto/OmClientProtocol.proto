@@ -1235,6 +1235,7 @@ message BasicKeyInfo {
     optional string ownerName = 9;
     optional bool isEncrypted = 10;
     optional bool isFile = 11;
+    optional hadoop.hdds.StoragePolicyProto storagePolicy = 1002;
 }
 
 message DirectoryInfo {
@@ -1843,6 +1844,7 @@ message MultipartUploadListPartsResponse {
     optional bool isTruncated = 5;
     repeated PartInfo partsList = 6;
     optional hadoop.hdds.ECReplicationConfig ecReplicationConfig = 7;
+    optional hadoop.hdds.StoragePolicyProto storagePolicy = 1000;
 }
 
 message ListMultipartUploadsRequest {

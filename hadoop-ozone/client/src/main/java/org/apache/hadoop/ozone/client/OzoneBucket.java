@@ -1801,7 +1801,7 @@ public class OzoneBucket extends WithMetadata {
         status.isFile(),
         keyInfo.getOwnerName(),
         Collections.emptyMap(),
-        null); // BasicOmKeyInfo does not carry StoragePolicy
+        keyInfo.getStoragePolicy());
   }
 
   /**

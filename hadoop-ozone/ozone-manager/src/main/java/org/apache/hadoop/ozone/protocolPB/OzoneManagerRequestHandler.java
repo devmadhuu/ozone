@@ -53,6 +53,7 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.fs.SafeModeAction;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
+import org.apache.hadoop.hdds.client.OzoneStoragePolicy;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.TransferLeadershipRequestProto;
@@ -1010,6 +1011,10 @@ public class OzoneManagerRequestHandler implements RequestHandler {
     response.setNextPartNumberMarker(
         omMultipartUploadListParts.getNextPartNumberMarker());
     response.setIsTruncated(omMultipartUploadListParts.isTruncated());
+    if (omMultipartUploadListParts.getStoragePolicy() != null) {
+      response.setStoragePolicy(OzoneStoragePolicy.toProto(
+          omMultipartUploadListParts.getStoragePolicy()));
+    }
 
     return response.addAllPartsList(partInfoList).build();
 

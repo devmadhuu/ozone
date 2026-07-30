@@ -29,6 +29,7 @@ import static org.apache.hadoop.ozone.s3.util.S3Consts.IF_MODIFIED_SINCE_HEADER;
 import static org.apache.hadoop.ozone.s3.util.S3Consts.IF_NONE_MATCH_HEADER;
 import static org.apache.hadoop.ozone.s3.util.S3Consts.IF_UNMODIFIED_SINCE_HEADER;
 import static org.apache.hadoop.ozone.s3.util.S3Consts.RANGE_HEADER;
+import static org.apache.hadoop.ozone.s3.util.S3Consts.STORAGE_CLASS_HEADER;
 import static org.apache.hadoop.ozone.s3.util.S3Consts.TAG_COUNT_HEADER;
 import static org.apache.hadoop.ozone.s3.util.S3Consts.TAG_HEADER;
 import static org.apache.hadoop.ozone.s3.util.S3Consts.X_AMZ_CONTENT_SHA256;
@@ -46,6 +47,7 @@ import java.time.format.DateTimeFormatter;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
+import org.apache.hadoop.hdds.client.OzoneStoragePolicy;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.client.OzoneBucket;
@@ -54,6 +56,7 @@ import org.apache.hadoop.ozone.client.OzoneClientStub;
 import org.apache.hadoop.ozone.client.OzoneClientTestUtils;
 import org.apache.hadoop.ozone.s3.exception.OS3Exception;
 import org.apache.hadoop.ozone.s3.util.RFC1123Util;
+import org.apache.hadoop.ozone.s3.util.S3StorageClass;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -120,6 +123,24 @@ public class TestObjectGet {
         .parse(response.getHeaderString("Last-Modified"));
 
     assertNull(response.getHeaderString(TAG_COUNT_HEADER));
+    assertNotNull(response.getHeaderString(STORAGE_CLASS_HEADER));
+  }
+
+  @Test
+  public void testGetWithStorageClass() throws IOException, OS3Exception {
+    for (OzoneStoragePolicy storagePolicy : OzoneStoragePolicy.values()) {
+      String key = "key-" + storagePolicy;
+      String storageClass =
+          S3StorageClass.fromStoragePolicy(storagePolicy).toString();
+      when(headers.getHeaderString(STORAGE_CLASS_HEADER))
+          .thenReturn(storageClass);
+
+      assertSucceeds(() -> put(rest, BUCKET_NAME, key, CONTENT));
+      Response response = get(rest, BUCKET_NAME, key);
+
+      assertEquals(storageClass,
+          response.getHeaderString(STORAGE_CLASS_HEADER));
+    }
   }
 
   @Test

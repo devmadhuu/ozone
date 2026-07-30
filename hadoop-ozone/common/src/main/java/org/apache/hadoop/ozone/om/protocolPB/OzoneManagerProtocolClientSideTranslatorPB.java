@@ -47,6 +47,7 @@ import org.apache.hadoop.hdds.annotation.InterfaceAudience;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.client.OzoneStoragePolicy;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
+import org.apache.hadoop.hdds.client.StoragePolicy;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.TransferLeadershipRequestProto;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.UpgradeFinalizationStatus;
 import org.apache.hadoop.hdds.scm.container.common.helpers.ExcludeList;
@@ -1885,13 +1886,16 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
         handleError(submitRequest(omRequest))
             .getListMultipartUploadPartsResponse();
 
+    StoragePolicy storagePolicy = response.hasStoragePolicy()
+        ? OzoneStoragePolicy.fromProto(response.getStoragePolicy()) : null;
 
     OmMultipartUploadListParts omMultipartUploadListParts =
         new OmMultipartUploadListParts(
             ReplicationConfig.fromProto(
                 response.getType(), response.getFactor(),
                 response.getEcReplicationConfig()),
-            response.getNextPartNumberMarker(), response.getIsTruncated());
+            response.getNextPartNumberMarker(), response.getIsTruncated(),
+            storagePolicy);
     omMultipartUploadListParts.addProtoPartList(response.getPartsListList());
 
     return omMultipartUploadListParts;

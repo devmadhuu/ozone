@@ -36,6 +36,7 @@ import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneClientStub;
 import org.apache.hadoop.ozone.s3.exception.OS3Exception;
 import org.apache.hadoop.ozone.s3.exception.S3ErrorTable;
+import org.apache.hadoop.ozone.s3.util.S3StorageClass;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -77,6 +78,8 @@ public class TestListParts {
 
     assertFalse(listPartsResponse.getTruncated());
     assertEquals(3, listPartsResponse.getPartList().size());
+    assertEquals(S3StorageClass.STANDARD.toString(),
+        listPartsResponse.getStorageClass());
   }
 
   @Test

@@ -27,6 +27,7 @@ import static org.apache.hadoop.ozone.s3.exception.S3ErrorTable.PRECOND_FAILED;
 import static org.apache.hadoop.ozone.s3.util.S3Consts.IF_MATCH_HEADER;
 import static org.apache.hadoop.ozone.s3.util.S3Consts.IF_NONE_MATCH_HEADER;
 import static org.apache.hadoop.ozone.s3.util.S3Consts.IF_UNMODIFIED_SINCE_HEADER;
+import static org.apache.hadoop.ozone.s3.util.S3Consts.STORAGE_CLASS_HEADER;
 import static org.apache.hadoop.ozone.s3.util.S3Consts.X_AMZ_CONTENT_SHA256;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -41,6 +42,7 @@ import java.time.format.DateTimeFormatter;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.Response;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.hadoop.hdds.client.OzoneStoragePolicy;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.client.OzoneBucket;
@@ -48,6 +50,7 @@ import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneClientStub;
 import org.apache.hadoop.ozone.s3.exception.OS3Exception;
 import org.apache.hadoop.ozone.s3.util.RFC1123Util;
+import org.apache.hadoop.ozone.s3.util.S3StorageClass;
 import org.apache.http.HttpStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -91,6 +94,23 @@ public class TestObjectHead {
 
     DateTimeFormatter.RFC_1123_DATE_TIME
         .parse(response.getHeaderString("Last-Modified"));
+  }
+
+  @Test
+  public void testHeadWithStorageClass() throws Exception {
+    for (OzoneStoragePolicy storagePolicy : OzoneStoragePolicy.values()) {
+      String key = "key-" + storagePolicy;
+      String storageClass =
+          S3StorageClass.fromStoragePolicy(storagePolicy).toString();
+      when(headers.getHeaderString(STORAGE_CLASS_HEADER))
+          .thenReturn(storageClass);
+
+      assertSucceeds(() -> put(keyEndpoint, bucketName, key, "content"));
+      Response response = keyEndpoint.head(bucketName, key);
+
+      assertEquals(storageClass,
+          response.getHeaderString(STORAGE_CLASS_HEADER));
+    }
   }
 
   @Test

@@ -1207,7 +1207,8 @@ public class KeyManagerImpl implements KeyManager {
         }
         OmMultipartUploadListParts omMultipartUploadListParts =
             new OmMultipartUploadListParts(replicationConfig,
-                nextPartNumberMarker, isTruncated);
+                nextPartNumberMarker, isTruncated,
+                multipartKeyInfo.getStoragePolicy());
         omMultipartUploadListParts.addPartList(omPartInfoList);
         return omMultipartUploadListParts;
       }

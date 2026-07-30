@@ -692,11 +692,12 @@ public final class OzoneBucketStub extends OzoneBucket {
       throw new OMException(ResultCodes.NO_SUCH_MULTIPART_UPLOAD_ERROR);
     }
     List<PartInfo> partInfoList = new ArrayList<>();
+    MultipartInfoStub multipartInfo = keyToMultipartUpload.get(key);
 
     if (partList.get(key) == null) {
       return new OzoneMultipartUploadPartListParts(
           RatisReplicationConfig.getInstance(HddsProtos.ReplicationFactor.ONE),
-          0, false);
+          0, false, multipartInfo.getStoragePolicy());
     } else {
       Map<Integer, Part> partMap = partList.get(key);
       Iterator<Map.Entry<Integer, Part>> partIterator =
@@ -734,7 +735,8 @@ public final class OzoneBucketStub extends OzoneBucket {
 
       OzoneMultipartUploadPartListParts ozoneMultipartUploadPartListParts =
           new OzoneMultipartUploadPartListParts(replicationConfig,
-              nextPartNumberMarker, truncated);
+              nextPartNumberMarker, truncated,
+              multipartInfo.getStoragePolicy());
       ozoneMultipartUploadPartListParts.addAllParts(partInfoList);
 
       return ozoneMultipartUploadPartListParts;

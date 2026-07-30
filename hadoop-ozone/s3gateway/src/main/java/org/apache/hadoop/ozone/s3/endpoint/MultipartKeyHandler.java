@@ -36,6 +36,7 @@ import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes;
 import org.apache.hadoop.ozone.s3.exception.OS3Exception;
 import org.apache.hadoop.ozone.s3.exception.S3ErrorTable;
+import org.apache.hadoop.ozone.s3.util.S3StorageClass;
 import org.apache.hadoop.ozone.s3.util.S3StorageType;
 
 /**
@@ -142,8 +143,13 @@ class MultipartKeyHandler extends ObjectOperationHandler {
       resp.setPartNumberMarker(partNumberMarker);
       resp.setTruncated(false);
 
-      resp.setStorageClass(S3StorageType.fromReplicationConfig(
-          parts.getReplicationConfig()).toString());
+      if (parts.getStoragePolicy() != null) {
+        resp.setStorageClass(S3StorageClass.fromStoragePolicy(
+            parts.getStoragePolicy()).toString());
+      } else {
+        resp.setStorageClass(S3StorageType.fromReplicationConfig(
+            parts.getReplicationConfig()).toString());
+      }
 
       if (parts.isTruncated()) {
         resp.setTruncated(true);

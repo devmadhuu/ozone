@@ -19,11 +19,14 @@ package org.apache.hadoop.ozone.om.helpers;
 
 import static org.apache.hadoop.ozone.OzoneConsts.ETAG;
 
+import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.util.Objects;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
+import org.apache.hadoop.hdds.client.OzoneStoragePolicy;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
+import org.apache.hadoop.hdds.client.StoragePolicy;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.BasicKeyInfo;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.ListKeysRequest;
 
@@ -43,6 +46,7 @@ public final class BasicOmKeyInfo {
   private final String eTag;
   private String ownerName;
   private final boolean isEncrypted;
+  private final @Nullable StoragePolicy storagePolicy;
 
   private BasicOmKeyInfo(Builder b) {
     this.volumeName = b.volumeName;
@@ -56,6 +60,7 @@ public final class BasicOmKeyInfo {
     this.eTag = StringUtils.isNotEmpty(b.eTag) ? b.eTag : null;
     this.ownerName = b.ownerName;
     this.isEncrypted = b.isEncrypted;
+    this.storagePolicy = b.storagePolicy;
   }
 
   private BasicOmKeyInfo(OmKeyInfo b) {
@@ -70,6 +75,7 @@ public final class BasicOmKeyInfo {
     this.eTag = b.getMetadata().get(ETAG);
     this.ownerName = b.getOwnerName();
     this.isEncrypted = b.getFileEncryptionInfo() != null;
+    this.storagePolicy = b.getStoragePolicy();
   }
 
   public String getVolumeName() {
@@ -116,6 +122,11 @@ public final class BasicOmKeyInfo {
     return isEncrypted;
   }
 
+  @Nullable
+  public StoragePolicy getStoragePolicy() {
+    return storagePolicy;
+  }
+
   public long getReplicatedSize() {
     return QuotaUtil.getReplicatedSize(getDataSize(), replicationConfig);
   }
@@ -135,6 +146,7 @@ public final class BasicOmKeyInfo {
     private String eTag;
     private String ownerName;
     private boolean isEncrypted;
+    private StoragePolicy storagePolicy;
 
     public Builder setVolumeName(String volumeName) {
       this.volumeName = volumeName;
@@ -191,6 +203,11 @@ public final class BasicOmKeyInfo {
       return this;
     }
 
+    public Builder setStoragePolicy(StoragePolicy storagePolicy) {
+      this.storagePolicy = storagePolicy;
+      return this;
+    }
+
     public BasicOmKeyInfo build() {
       return new BasicOmKeyInfo(this);
     }
@@ -216,6 +233,9 @@ public final class BasicOmKeyInfo {
     }
     if (StringUtils.isNotEmpty(eTag)) {
       builder.setETag(eTag);
+    }
+    if (storagePolicy != null) {
+      builder.setStoragePolicy(OzoneStoragePolicy.toProto(storagePolicy));
     }
 
     return builder.build();
@@ -244,6 +264,10 @@ public final class BasicOmKeyInfo {
         .setETag(basicKeyInfo.getETag())
         .setOwnerName(basicKeyInfo.getOwnerName())
         .setIsEncrypted(basicKeyInfo.getIsEncrypted());
+    if (basicKeyInfo.hasStoragePolicy()) {
+      builder.setStoragePolicy(
+          OzoneStoragePolicy.fromProto(basicKeyInfo.getStoragePolicy()));
+    }
 
     if (basicKeyInfo.hasIsFile()) {
       builder.setIsFile(basicKeyInfo.getIsFile());
@@ -276,6 +300,10 @@ public final class BasicOmKeyInfo {
         .setETag(basicKeyInfo.getETag())
         .setOwnerName(basicKeyInfo.getOwnerName())
         .setIsEncrypted(basicKeyInfo.getIsEncrypted());
+    if (basicKeyInfo.hasStoragePolicy()) {
+      builder.setStoragePolicy(
+          OzoneStoragePolicy.fromProto(basicKeyInfo.getStoragePolicy()));
+    }
 
     if (basicKeyInfo.hasIsFile()) {
       builder.setIsFile(basicKeyInfo.getIsFile());
@@ -305,7 +333,8 @@ public final class BasicOmKeyInfo {
         Objects.equals(eTag, basicOmKeyInfo.eTag) &&
         isFile == basicOmKeyInfo.isFile &&
         ownerName.equals(basicOmKeyInfo.ownerName) &&
-        isEncrypted == basicOmKeyInfo.isEncrypted;
+        isEncrypted == basicOmKeyInfo.isEncrypted &&
+        Objects.equals(storagePolicy, basicOmKeyInfo.storagePolicy);
   }
 
   @Override

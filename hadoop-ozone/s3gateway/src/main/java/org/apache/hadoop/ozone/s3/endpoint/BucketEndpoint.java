@@ -63,6 +63,7 @@ import org.apache.hadoop.ozone.s3.exception.OS3Exception;
 import org.apache.hadoop.ozone.s3.exception.S3ErrorTable;
 import org.apache.hadoop.ozone.s3.util.ContinueToken;
 import org.apache.hadoop.ozone.s3.util.S3Consts.QueryParams;
+import org.apache.hadoop.ozone.s3.util.S3StorageClass;
 import org.apache.hadoop.ozone.s3.util.S3StorageType;
 import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
@@ -400,8 +401,13 @@ public class BucketEndpoint extends BucketOperationHandler {
     if (eTag != null) {
       keyMetadata.setETag(wrapInQuotes(eTag));
     }
-    keyMetadata.setStorageClass(S3StorageType.fromReplicationConfig(
-        next.getReplicationConfig()).toString());
+    if (next.getStoragePolicy() != null) {
+      keyMetadata.setStorageClass(S3StorageClass.fromStoragePolicy(
+          next.getStoragePolicy()).toString());
+    } else {
+      keyMetadata.setStorageClass(S3StorageType.fromReplicationConfig(
+          next.getReplicationConfig()).toString());
+    }
     keyMetadata.setLastModified(next.getModificationTime());
     String displayName = next.getOwner();
     keyMetadata.setOwner(S3Owner.of(displayName));

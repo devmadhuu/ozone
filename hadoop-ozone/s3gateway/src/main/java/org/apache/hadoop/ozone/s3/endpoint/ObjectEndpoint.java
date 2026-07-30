@@ -106,6 +106,7 @@ import org.apache.hadoop.ozone.s3.util.RangeHeader;
 import org.apache.hadoop.ozone.s3.util.RangeHeaderParserUtil;
 import org.apache.hadoop.ozone.s3.util.S3Consts;
 import org.apache.hadoop.ozone.s3.util.S3Consts.QueryParams;
+import org.apache.hadoop.ozone.s3.util.S3StorageClass;
 import org.apache.hadoop.ozone.s3.util.S3StorageType;
 import org.apache.hadoop.ozone.s3.util.S3Utils;
 import org.apache.hadoop.util.Time;
@@ -483,6 +484,7 @@ public class ObjectEndpoint extends ObjectOperationHandler {
 
       addLastModifiedDate(responseBuilder, keyDetails);
       addTagCountIfAny(responseBuilder, keyDetails);
+      addStorageClass(responseBuilder, keyDetails);
 
       long metadataLatencyNs = getMetrics().updateGetKeyMetadataStats(startNanos);
       perf.appendMetaLatencyNanos(metadataLatencyNs);
@@ -514,6 +516,18 @@ public class ObjectEndpoint extends ObjectOperationHandler {
     if (!key.getTags().isEmpty()) {
       responseBuilder
           .header(TAG_COUNT_HEADER, key.getTags().size());
+    }
+  }
+
+  static void addStorageClass(ResponseBuilder responseBuilder, OzoneKey key) {
+    if (key.getStoragePolicy() != null) {
+      responseBuilder.header(STORAGE_CLASS_HEADER,
+          S3StorageClass.fromStoragePolicy(key.getStoragePolicy()));
+    } else {
+      S3StorageType storageType = key.getReplicationConfig() == null
+          ? S3StorageType.STANDARD
+          : S3StorageType.fromReplicationConfig(key.getReplicationConfig());
+      responseBuilder.header(STORAGE_CLASS_HEADER, storageType);
     }
   }
 
@@ -575,18 +589,14 @@ public class ObjectEndpoint extends ObjectOperationHandler {
       throw ex;
     }
 
-    S3StorageType s3StorageType = key.getReplicationConfig() == null ?
-        S3StorageType.STANDARD :
-        S3StorageType.fromReplicationConfig(key.getReplicationConfig());
-
     ResponseBuilder response = Response.ok().status(HttpStatus.SC_OK)
         .header(HttpHeaders.CONTENT_LENGTH, key.getDataSize())
-        .header(HttpHeaders.CONTENT_TYPE, "binary/octet-stream")
-        .header(STORAGE_CLASS_HEADER, s3StorageType.toString());
+        .header(HttpHeaders.CONTENT_TYPE, "binary/octet-stream");
     addEntityTagHeader(response, key);
 
     addLastModifiedDate(response, key);
     addCustomMetadataHeaders(response, key);
+    addStorageClass(response, key);
     getMetrics().updateHeadKeySuccessStats(startNanos);
     auditReadSuccess(s3GAction);
     return response.build();

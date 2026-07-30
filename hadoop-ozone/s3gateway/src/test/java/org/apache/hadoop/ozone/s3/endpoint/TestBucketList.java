@@ -28,15 +28,23 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.stream.IntStream;
+import org.apache.hadoop.hdds.client.OzoneStoragePolicy;
+import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+import org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneClientStub;
 import org.apache.hadoop.ozone.s3.commontypes.EncodingTypeObject;
+import org.apache.hadoop.ozone.s3.commontypes.KeyMetadata;
 import org.apache.hadoop.ozone.s3.exception.OS3Exception;
 import org.apache.hadoop.ozone.s3.exception.S3ErrorTable;
 import org.apache.hadoop.ozone.s3.util.S3Consts.QueryParams;
+import org.apache.hadoop.ozone.s3.util.S3StorageClass;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.junit.jupiter.api.Test;
 
@@ -131,6 +139,39 @@ public class TestBucketList {
         getBucketResponse.getContents().get(0).getOwner().getDisplayName());
     assertEquals(user2.getShortUserName(),
         getBucketResponse.getContents().get(1).getOwner().getDisplayName());
+  }
+
+  @Test
+  public void listObjectWithStorageClass() throws OS3Exception, IOException {
+    OzoneClient client = new OzoneClientStub();
+    client.getObjectStore().createS3Bucket("b1");
+    OzoneBucket bucket = client.getObjectStore().getS3Bucket("b1");
+    Map<OzoneStoragePolicy, String> expected = new EnumMap<>(
+        OzoneStoragePolicy.class);
+
+    for (OzoneStoragePolicy storagePolicy : OzoneStoragePolicy.values()) {
+      String key = "key-" + storagePolicy.name();
+      bucket.createKey(key, 0,
+          RatisReplicationConfig.getInstance(ReplicationFactor.THREE),
+          Collections.emptyMap(), Collections.emptyMap(), storagePolicy)
+          .close();
+      expected.put(storagePolicy,
+          S3StorageClass.fromStoragePolicy(storagePolicy).toString());
+    }
+
+    BucketEndpoint endpoint = newBucketEndpointBuilder()
+        .setClient(client)
+        .build();
+    endpoint.queryParamsForTest().set(QueryParams.PREFIX, "key-");
+    ListObjectResponse response =
+        (ListObjectResponse) endpoint.get("b1").getEntity();
+
+    assertEquals(expected.size(), response.getContents().size());
+    for (KeyMetadata key : response.getContents()) {
+      OzoneStoragePolicy policy = OzoneStoragePolicy.valueOf(
+          key.getKey().getName().substring("key-".length()));
+      assertEquals(expected.get(policy), key.getStorageClass());
+    }
   }
 
   @Test

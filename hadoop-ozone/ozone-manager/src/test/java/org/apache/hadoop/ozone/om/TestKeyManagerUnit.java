@@ -45,7 +45,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.hadoop.hdds.HddsConfigKeys;
 import org.apache.hadoop.hdds.client.BlockID;
+import org.apache.hadoop.hdds.client.OzoneStoragePolicy;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
+import org.apache.hadoop.hdds.client.StoragePolicy;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.MockDatanodeDetails;
@@ -147,7 +149,8 @@ class TestKeyManagerUnit extends OzoneTestBase {
     createBucket(metadataManager, volume, "bucket1");
 
     OmMultipartInfo omMultipartInfo =
-        initMultipartUpload(writeClient, volume, "bucket1", "dir/key1");
+        initMultipartUpload(writeClient, volume, "bucket1", "dir/key1",
+            OzoneStoragePolicy.COLD);
 
     //WHEN
     OmMultipartUploadListParts omMultipartUploadListParts = keyManager
@@ -156,6 +159,8 @@ class TestKeyManagerUnit extends OzoneTestBase {
 
     assertEquals(0,
         omMultipartUploadListParts.getPartInfoList().size());
+    assertEquals(OzoneStoragePolicy.COLD,
+        omMultipartUploadListParts.getStoragePolicy());
   }
 
   @Test
@@ -444,10 +449,17 @@ class TestKeyManagerUnit extends OzoneTestBase {
   private OmMultipartInfo initMultipartUpload(OzoneManagerProtocol omtest,
       String volume, String bucket, String key)
       throws IOException {
+    return initMultipartUpload(omtest, volume, bucket, key, null);
+  }
+
+  private OmMultipartInfo initMultipartUpload(OzoneManagerProtocol omtest,
+      String volume, String bucket, String key, StoragePolicy storagePolicy)
+      throws IOException {
     OmKeyArgs key1 = new Builder()
         .setVolumeName(volume)
         .setBucketName(bucket)
         .setKeyName(key)
+        .setStoragePolicy(storagePolicy)
         .setReplicationConfig(
             RatisReplicationConfig.getInstance(ReplicationFactor.THREE))
         .setAcls(new ArrayList<>())
