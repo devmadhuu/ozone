@@ -19,6 +19,7 @@ package org.apache.hadoop.hdds.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -84,6 +85,25 @@ class StorageTierUtilTest {
             setOf(StorageType.SSD, StorageType.DISK),
             setOf(StorageType.SSD, StorageType.DISK),
             setOf(StorageType.SSD, StorageType.DISK)),
+        2, setOf(StorageTier.SSD, StorageTier.DISK));
+
+    assertStorageTiers(createDnStorageTypes(
+            setOf(StorageType.SSD, StorageType.DISK, StorageType.ARCHIVE),
+            setOf(StorageType.SSD, StorageType.ARCHIVE),
+            setOf(StorageType.ARCHIVE, StorageType.SSD),
+            setOf(StorageType.ARCHIVE, StorageType.DISK),
+            setOf(StorageType.DISK, StorageType.ARCHIVE),
+            setOf(StorageType.ARCHIVE, StorageType.DISK),
+            setOf(StorageType.DISK, StorageType.ARCHIVE),
+            setOf(StorageType.ARCHIVE),
+            setOf(StorageType.ARCHIVE)),
+        1, setOf(StorageTier.ARCHIVE));
+
+    List<Set<StorageType>> dnStorageTypes = new ArrayList<>();
+    for (int i = 0; i < 14; i++) {
+      dnStorageTypes.add(setOf(StorageType.SSD, StorageType.DISK));
+    }
+    assertStorageTiers(dnStorageTypes,
         2, setOf(StorageTier.SSD, StorageTier.DISK));
   }
 

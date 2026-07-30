@@ -294,8 +294,9 @@ public final class SCMContainerPlacementRackScatter
 
     LOG.debug("Available racks excluding racks with used nodes: {}.", racks);
     if (racks.size() < additionalRacksRequired) {
-      String reason = "Number of existing racks: " + racks.size()
-              + "is less than additional required number of racks to choose: "
+      String reason = "Number of existing StorageType " + storageType +
+          " racks: " + racks.size()
+              + " is less than additional required number of racks to choose: "
               + additionalRacksRequired + " do not match.";
       LOG.warn("Placement policy cannot choose the enough racks. {}"
                       + "Total number of Required Racks: {} Used Racks Count:" +
@@ -313,8 +314,9 @@ public final class SCMContainerPlacementRackScatter
             usedRacksCntMap, maxReplicasPerRack, storageType));
 
     if (chosenNodes.size() < additionalRacksRequired) {
-      String reason = "Chosen nodes size from Unique Racks: " + chosenNodes
-              .size() + ", but required nodes to choose from Unique Racks: "
+      String reason = "Chosen StorageType " + storageType +
+          " nodes size from unique racks: " + chosenNodes.size() +
+          ", but required nodes to choose from unique racks: "
               + additionalRacksRequired + " do not match.";
       LOG.warn("Placement policy could not choose the enough nodes from " +
                       "available racks. {} Available racks count: {},"

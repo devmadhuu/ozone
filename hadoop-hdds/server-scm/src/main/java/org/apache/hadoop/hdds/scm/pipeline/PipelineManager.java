@@ -49,7 +49,8 @@ public interface PipelineManager extends Closeable, PipelineManagerMXBean {
 
   Pipeline buildECPipeline(ReplicationConfig replicationConfig,
                            List<DatanodeDetails> excludedNodes,
-                           List<DatanodeDetails> favoredNodes)
+                           List<DatanodeDetails> favoredNodes,
+                           StorageTier storageTier)
       throws IOException;
 
   void addEcPipeline(Pipeline pipeline) throws IOException;

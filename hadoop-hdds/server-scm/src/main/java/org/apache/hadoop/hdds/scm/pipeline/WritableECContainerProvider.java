@@ -96,12 +96,12 @@ public class WritableECContainerProvider
       ECReplicationConfig repConfig, String owner, ExcludeList excludeList,
       @Nonnull StorageTier storageTier)
       throws IOException {
-    // TODO StoragePolicy Support EC
     int maximumPipelines = getMaximumPipelines(repConfig);
     int openPipelineCount;
     synchronized (this) {
-      openPipelineCount = pipelineManager.getPipelineCount(repConfig,
-          Pipeline.PipelineState.OPEN);
+      List<Pipeline> existingPipelines = pipelineManager.getPipelines(
+          repConfig, Pipeline.PipelineState.OPEN, storageTier);
+      openPipelineCount = existingPipelines.size();
       if (openPipelineCount < maximumPipelines) {
         try {
           return allocateContainer(repConfig, size, owner, excludeList, storageTier);
@@ -118,7 +118,7 @@ public class WritableECContainerProvider
       }
     }
     List<Pipeline> existingPipelines = pipelineManager.getPipelines(
-        repConfig, Pipeline.PipelineState.OPEN);
+        repConfig, Pipeline.PipelineState.OPEN, storageTier);
     final int pipelineCount = existingPipelines.size();
     LOG.debug("Checking existing pipelines: {}", existingPipelines);
 
@@ -137,7 +137,8 @@ public class WritableECContainerProvider
       Pipeline pipeline = existingPipelines.get(pipelineIndex);
       synchronized (pipeline.getId()) {
         try {
-          ContainerInfo containerInfo = getContainerFromPipeline(pipeline);
+          ContainerInfo containerInfo =
+              getContainerFromPipeline(pipeline, storageTier);
           if (containerInfo == null
               || !containerHasSpace(containerInfo, size)) {
             existingPipelines.remove(pipelineIndex);
@@ -249,7 +250,8 @@ public class WritableECContainerProvider
     return false;
   }
 
-  private ContainerInfo getContainerFromPipeline(Pipeline pipeline)
+  private ContainerInfo getContainerFromPipeline(Pipeline pipeline,
+      StorageTier storageTier)
       throws IOException {
     // Assume the container is still open if the below method returns it. On
     // container FINALIZE, ContainerManager will remove the container from the
@@ -258,12 +260,17 @@ public class WritableECContainerProvider
     // on a stale / dead node event (via close pipeline).
     NavigableSet<ContainerID> containers =
         pipelineManager.getContainersInPipeline(pipeline.getId());
-    // Assume 1 container per pipeline for EC
     if (containers.isEmpty()) {
       return null;
     }
-    ContainerID containerID = containers.first();
-    return containerManager.getContainer(containerID);
+    for (ContainerID containerID : containers) {
+      ContainerInfo container = containerManager.getContainer(containerID);
+      if (container.getStorageTier() == null ||
+          container.getStorageTier().equals(storageTier)) {
+        return container;
+      }
+    }
+    return null;
   }
 
   private boolean containerHasSpace(ContainerInfo container, long size) {

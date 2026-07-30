@@ -81,7 +81,7 @@ public class MockPipelineManager implements PipelineManager {
     if (replicationConfig.getReplicationType()
         == HddsProtos.ReplicationType.EC) {
       pipeline = buildECPipeline(
-          replicationConfig, excludedNodes, favoredNodes);
+          replicationConfig, excludedNodes, favoredNodes, storageTier);
     } else {
       pipeline = createPipeline(replicationConfig,
           ImmutableList.of(MockDatanodeDetails.randomDatanodeDetails(),
@@ -97,7 +97,8 @@ public class MockPipelineManager implements PipelineManager {
 
   @Override
   public Pipeline buildECPipeline(ReplicationConfig replicationConfig,
-      List<DatanodeDetails> excludedNodes, List<DatanodeDetails> favoredNodes) {
+      List<DatanodeDetails> excludedNodes, List<DatanodeDetails> favoredNodes,
+      StorageTier storageTier) {
     final List<DatanodeDetails> nodes = Stream.generate(
             MockDatanodeDetails::randomDatanodeDetails)
         .limit(replicationConfig.getRequiredNodes())
@@ -106,6 +107,7 @@ public class MockPipelineManager implements PipelineManager {
         .setId(PipelineID.randomId())
         .setReplicationConfig(replicationConfig)
         .setNodes(nodes)
+        .setSupportedStorageTier(storageTier)
         .setState(Pipeline.PipelineState.OPEN)
         .build();
     return pipeline;

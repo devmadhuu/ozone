@@ -43,6 +43,7 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
@@ -222,7 +223,8 @@ public class ECReconstructionCoordinator implements Closeable {
 
   private ECBlockOutputStream getECBlockOutputStream(
       BlockLocationInfo blockLocationInfo, DatanodeDetails datanodeDetails,
-      ECReplicationConfig repConfig, int replicaIndex) throws IOException {
+      ECReplicationConfig repConfig, int replicaIndex,
+      StorageType storageType) throws IOException {
     StreamBufferArgs streamBufferArgs =
         StreamBufferArgs.getDefaultStreamBufferArgs(repConfig, ozoneClientConfig);
     return new ECBlockOutputStream(
@@ -231,7 +233,8 @@ public class ECReconstructionCoordinator implements Closeable {
         containerOperationClient.singleNodePipeline(datanodeDetails,
             repConfig, replicaIndex),
         BufferPool.empty(), ozoneClientConfig,
-        blockLocationInfo.getToken(), clientMetrics, streamBufferArgs, ecReconstructWriteExecutor);
+        blockLocationInfo.getToken(), clientMetrics, streamBufferArgs,
+        ecReconstructWriteExecutor, storageType);
   }
 
   @VisibleForTesting
@@ -277,7 +280,8 @@ public class ECReconstructionCoordinator implements Closeable {
         for (int i = 0; i < toReconstructIndexes.size(); i++) {
           int replicaIndex = toReconstructIndexes.get(i);
           DatanodeDetails datanodeDetails = targetMap.get(replicaIndex);
-          targetBlockStreams[i] = getECBlockOutputStream(blockLocationInfo, datanodeDetails, repConfig, replicaIndex);
+          targetBlockStreams[i] = getECBlockOutputStream(blockLocationInfo,
+              datanodeDetails, repConfig, replicaIndex, StorageType.DEFAULT);
           bufs[i] = byteBufferPool.getBuffer(false, repConfig.getEcChunkSize());
           bufs[i].clear();
         }
@@ -286,7 +290,8 @@ public class ECReconstructionCoordinator implements Closeable {
         for (int i = 0; i < notReconstructIndexes.size(); i++) {
           int replicaIndex = notReconstructIndexes.get(i);
           DatanodeDetails datanodeDetails = targetMap.get(replicaIndex);
-          emptyBlockStreams[i] = getECBlockOutputStream(blockLocationInfo, datanodeDetails, repConfig, replicaIndex);
+          emptyBlockStreams[i] = getECBlockOutputStream(blockLocationInfo,
+              datanodeDetails, repConfig, replicaIndex, StorageType.DEFAULT);
         }
 
         if (!toReconstructIndexes.isEmpty()) {

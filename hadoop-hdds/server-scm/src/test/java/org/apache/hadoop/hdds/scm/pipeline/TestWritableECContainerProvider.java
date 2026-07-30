@@ -138,8 +138,9 @@ public class TestWritableECContainerProvider {
 
     doAnswer(call -> {
       Pipeline pipeline = (Pipeline)call.getArguments()[2];
+      StorageTier storageTier = call.getArgument(4);
       ContainerInfo container = createContainer(pipeline,
-          repConfig, System.nanoTime());
+          repConfig, System.nanoTime(), storageTier);
       pipelineManager.addContainerToPipeline(
           pipeline.getId(), container.containerID());
       containers.put(container.containerID(), container);
@@ -203,6 +204,27 @@ public class TestWritableECContainerProvider {
     int minimumPipelines = providerConf.getMinimumPipelines();
     Set<ContainerInfo> allocated = assertDistinctContainers(minimumPipelines);
     assertReusesExisting(allocated, minimumPipelines);
+  }
+
+  @ParameterizedTest
+  @MethodSource("policies")
+  void testReturnsContainerForRequestedStorageTier(
+      PipelineChoosePolicy policy) throws IOException {
+    providerConf.setMinimumPipelines(1);
+    provider = createSubject(policy);
+
+    ContainerInfo diskContainer = provider.getContainer(
+        1, repConfig, OWNER, new ExcludeList(), StorageTier.DISK);
+    ContainerInfo ssdContainer = provider.getContainer(
+        1, repConfig, OWNER, new ExcludeList(), StorageTier.SSD);
+
+    assertNotEquals(diskContainer, ssdContainer);
+    assertEquals(StorageTier.DISK, diskContainer.getStorageTier());
+    assertEquals(StorageTier.SSD, ssdContainer.getStorageTier());
+    assertEquals(StorageTier.DISK, pipelineManager.getPipeline(
+        diskContainer.getPipelineID()).getSupportedStorageTier());
+    assertEquals(StorageTier.SSD, pipelineManager.getPipeline(
+        ssdContainer.getPipelineID()).getSupportedStorageTier());
   }
 
   private Set<ContainerInfo> assertDistinctContainers(int n)
@@ -561,7 +583,7 @@ public class TestWritableECContainerProvider {
   }
 
   private ContainerInfo createContainer(Pipeline pipeline,
-      ReplicationConfig repConf, long containerID) {
+      ReplicationConfig repConf, long containerID, StorageTier storageTier) {
     return new ContainerInfo.Builder()
         .setContainerID(containerID)
         .setOwner(OWNER)
@@ -572,6 +594,7 @@ public class TestWritableECContainerProvider {
         .setUsedBytes(0)
         .setSequenceId(0)
         .setDeleteTransactionId(0)
+        .setStorageTier(storageTier)
         .build();
   }
 

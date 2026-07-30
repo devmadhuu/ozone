@@ -220,10 +220,13 @@ public class TestPipelineManagerImpl {
 
     Pipeline builtPipeline = pipelineManager.buildECPipeline(
         new ECReplicationConfig(3, 2),
-        Collections.emptyList(), Collections.emptyList());
+        Collections.emptyList(), Collections.emptyList(),
+        StorageTier.getDefaultTier());
     pipelineManager.addEcPipeline(builtPipeline);
 
     assertEquals(3, pipelineManager.getPipelines().size());
+    assertEquals(StorageTier.getDefaultTier(),
+        builtPipeline.getSupportedStorageTier());
     assertTrue(pipelineManager.containsPipeline(
         builtPipeline.getId()));
 

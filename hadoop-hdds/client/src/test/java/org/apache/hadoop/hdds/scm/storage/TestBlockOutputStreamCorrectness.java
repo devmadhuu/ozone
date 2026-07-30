@@ -194,7 +194,8 @@ class TestBlockOutputStreamCorrectness {
         StreamBufferArgs.getDefaultStreamBufferArgs(repConfig, clientConfig);
 
     return new ECBlockOutputStream(blockID, xcm, pipeline, BufferPool.empty(), clientConfig, null,
-        clientMetrics, streamBufferArgs, () -> newFixedThreadPool(2));
+        clientMetrics, streamBufferArgs, () -> newFixedThreadPool(2),
+        StorageType.DEFAULT);
   }
 
   /**

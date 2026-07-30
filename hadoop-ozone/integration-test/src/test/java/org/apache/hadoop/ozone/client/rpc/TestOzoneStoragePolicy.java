@@ -132,21 +132,18 @@ public class TestOzoneStoragePolicy {
         arguments("RATIS", "ONE", BucketLayout.FILE_SYSTEM_OPTIMIZED),
         arguments("RATIS", "ONE", BucketLayout.OBJECT_STORE),
         arguments("RATIS", "THREE", BucketLayout.FILE_SYSTEM_OPTIMIZED),
-        arguments("RATIS", "THREE", BucketLayout.OBJECT_STORE)
+        arguments("RATIS", "THREE", BucketLayout.OBJECT_STORE),
+        arguments("EC", "RS-3-2-1024k", BucketLayout.FILE_SYSTEM_OPTIMIZED),
+        arguments("EC", "RS-10-4-1024k", BucketLayout.OBJECT_STORE)
     );
   }
 
   public static Stream<Arguments> replicaType() {
     return Stream.of(
         arguments("RATIS", "THREE", BucketLayout.FILE_SYSTEM_OPTIMIZED),
-        arguments("RATIS", "THREE", BucketLayout.OBJECT_STORE)
-    );
-  }
-
-  public static Stream<Arguments> bucketLayout() {
-    return Stream.of(
-        arguments(BucketLayout.FILE_SYSTEM_OPTIMIZED),
-        arguments(BucketLayout.OBJECT_STORE)
+        arguments("RATIS", "THREE", BucketLayout.OBJECT_STORE),
+        arguments("EC", "RS-3-2-1024k", BucketLayout.FILE_SYSTEM_OPTIMIZED),
+        arguments("EC", "RS-10-4-1024k", BucketLayout.OBJECT_STORE)
     );
   }
 
