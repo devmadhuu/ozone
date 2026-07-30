@@ -67,9 +67,11 @@ import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.conf.StorageUnit;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.client.BlockID;
+import org.apache.hadoop.hdds.client.StorageTypeUtils;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ContainerReplicaProto;
 import org.apache.hadoop.hdds.scm.container.common.helpers.StorageContainerException;
 import org.apache.hadoop.hdds.utils.db.CodecBuffer;
 import org.apache.hadoop.hdds.utils.db.DBProfile;
@@ -713,7 +715,12 @@ public class TestKeyValueContainer {
       ContainerTestVersionInfo versionInfo) throws Exception {
     init(versionInfo);
     keyValueContainer.create(volumeSet, volumeChoosingPolicy, scmId, StorageType.DISK);
-    assertNotNull(keyValueContainer.getContainerReport());
+    ContainerReplicaProto report = keyValueContainer.getContainerReport();
+    assertEquals(keyValueContainer.getContainerData().getContainerPath(),
+        report.getContainerPath());
+    assertEquals(StorageTypeUtils.getStorageTypeProto(
+        keyValueContainer.getContainerData().getVolume().getStorageType()),
+        report.getVolumeStorageType());
     keyValueContainer.markContainerUnhealthy();
     File containerFile = keyValueContainer.getContainerFile();
     keyValueContainerData = (KeyValueContainerData) ContainerDataYaml

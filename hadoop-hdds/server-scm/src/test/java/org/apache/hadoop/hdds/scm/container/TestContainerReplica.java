@@ -21,6 +21,7 @@ import static org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProt
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.concurrent.ThreadLocalRandom;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.protocol.DatanodeID;
 import org.apache.hadoop.hdds.protocol.MockDatanodeDetails;
 import org.junit.jupiter.api.Test;
@@ -42,6 +43,9 @@ class TestContainerReplica {
         .setSequenceId(ThreadLocalRandom.current().nextLong())
         .setReplicaIndex(ThreadLocalRandom.current().nextInt())
         .setDatanodeDetails(MockDatanodeDetails.randomDatanodeDetails())
+        .setStorageType(StorageType.SSD)
+        .setContainerPath("/data/containers/1")
+        .setVolumeStorageType(StorageType.ARCHIVE)
         .build();
 
     ContainerReplica copy = subject.toBuilder().build();

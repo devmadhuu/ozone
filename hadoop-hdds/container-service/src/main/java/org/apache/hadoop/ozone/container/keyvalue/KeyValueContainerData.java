@@ -288,6 +288,13 @@ public class KeyValueContainerData extends ContainerData {
     if (getStorageType() != null) {
       builder.setStorageType(StorageTypeUtils.getStorageTypeProto(getStorageType()));
     }
+    if (getContainerPath() != null) {
+      builder.setContainerPath(getContainerPath());
+    }
+    if (getVolume() != null && getVolume().getStorageType() != null) {
+      builder.setVolumeStorageType(
+          StorageTypeUtils.getStorageTypeProto(getVolume().getStorageType()));
+    }
     return builder.build();
   }
 

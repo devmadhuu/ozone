@@ -61,6 +61,10 @@ public class InfoSubcommand extends ScmSubcommand {
   @CommandLine.Mixin
   private ContainerIDParameters containerList;
 
+  @CommandLine.Option(names = "--with-storagetype",
+      description = "Output container and volume StorageType information")
+  private boolean withStorageType;
+
   private boolean multiContainer = false;
 
   @Override
@@ -173,7 +177,7 @@ public class InfoSubcommand extends ScmSubcommand {
       if (replicas != null) {
         String replicaStr = replicas.stream()
             .sorted(Comparator.comparing(ContainerReplicaInfo::getReplicaIndex))
-            .map(InfoSubcommand::buildReplicaDetails)
+            .map(this::buildReplicaDetails)
             .collect(Collectors.joining("," + System.lineSeparator()));
         System.out.printf("Replicas: [%s]%n", replicaStr);
       }
@@ -184,7 +188,7 @@ public class InfoSubcommand extends ScmSubcommand {
     return details.getUuidString() + "/" + details.getHostName();
   }
 
-  private static String buildReplicaDetails(ContainerReplicaInfo replica) {
+  private String buildReplicaDetails(ContainerReplicaInfo replica) {
     StringBuilder sb = new StringBuilder()
         .append("State: ").append(replica.getState()).append(';');
     if (replica.getReplicaIndex() != -1) {
@@ -193,6 +197,16 @@ public class InfoSubcommand extends ScmSubcommand {
     sb.append(" SequenceId: ").append(replica.getSequenceId()).append(';')
         .append(" Origin: ").append(replica.getPlaceOfBirth().toString()).append(';')
         .append(" Location: ").append(buildDatanodeDetails(replica.getDatanodeDetails()));
+    if (replica.getContainerPath() != null) {
+      sb.append(" ContainerPath: ").append(replica.getContainerPath())
+          .append(';');
+    }
+    if (withStorageType) {
+      sb.append(" ContainerStorageType: ").append(replica.getStorageType())
+          .append(';');
+      sb.append(" ContainerVolumeStorageType: ")
+          .append(replica.getVolumeStorageType()).append(';');
+    }
     return sb.toString();
   }
 

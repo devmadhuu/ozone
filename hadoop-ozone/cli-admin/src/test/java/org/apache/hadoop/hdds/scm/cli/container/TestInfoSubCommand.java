@@ -43,6 +43,7 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
@@ -102,6 +103,36 @@ public class TestInfoSubCommand {
   @Test
   public void testReplicaIndexInOutput() throws Exception {
     testReplicaIncludedInOutput(true);
+  }
+
+  @Test
+  public void testStorageTypeIncludedInOutput() throws Exception {
+    when(scmClient.getContainerReplicas(anyLong()))
+        .thenReturn(getReplicas(true));
+    cmd = new InfoSubcommand();
+    CommandLine c = new CommandLine(cmd);
+    c.parseArgs("1", "--with-storagetype");
+    cmd.execute(scmClient);
+
+    assertThat(outContent.toString(DEFAULT_ENCODING))
+        .contains("ContainerPath: /data/containers/1;")
+        .contains("ContainerStorageType: SSD;")
+        .contains("ContainerVolumeStorageType: ARCHIVE;");
+  }
+
+  @Test
+  public void testStorageTypeExcludedByDefault() throws Exception {
+    when(scmClient.getContainerReplicas(anyLong()))
+        .thenReturn(getReplicas(true));
+    cmd = new InfoSubcommand();
+    CommandLine c = new CommandLine(cmd);
+    c.parseArgs("1");
+    cmd.execute(scmClient);
+
+    assertThat(outContent.toString(DEFAULT_ENCODING))
+        .contains("ContainerPath: /data/containers/1;")
+        .doesNotContain("ContainerStorageType:")
+        .doesNotContain("ContainerVolumeStorageType:");
   }
 
   @Test
@@ -346,7 +377,10 @@ public class TestInfoSubCommand {
           .setPlaceOfBirth(dn.getUuid())
           .setDatanodeDetails(dn)
           .setKeyCount(1)
-          .setSequenceId(1);
+          .setSequenceId(1)
+          .setStorageType(StorageType.SSD)
+          .setContainerPath("/data/containers/1")
+          .setVolumeStorageType(StorageType.ARCHIVE);
       if (includeIndex) {
         container.setReplicaIndex(index++);
       }
