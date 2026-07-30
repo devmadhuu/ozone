@@ -22,8 +22,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.verify;
 
 import java.io.OutputStream;
+import org.apache.hadoop.fs.StorageType;
+import org.apache.hadoop.hdds.client.StorageTypeUtils;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.SendContainerRequest;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -60,6 +63,27 @@ class TestSendContainerOutputStream
         .setCompression(compression.toProto())
         .build();
 
+    verify(getObserver()).onNext(req);
+    verify(getObserver()).onCompleted();
+  }
+
+  @Test
+  void includesTargetStorageType() throws Exception {
+    OutputStream subject = new SendContainerOutputStream(
+        getObserver(), getContainerId(), getBufferSize(), NO_COMPRESSION,
+        null, StorageType.SSD);
+
+    byte[] bytes = getRandomBytes(16);
+    subject.write(bytes);
+    subject.close();
+
+    SendContainerRequest req = SendContainerRequest.newBuilder()
+        .setContainerID(getContainerId())
+        .setOffset(0)
+        .setData(ByteString.copyFrom(bytes))
+        .setCompression(NO_COMPRESSION.toProto())
+        .setStorageTypeID(StorageTypeUtils.getID(StorageType.SSD))
+        .build();
     verify(getObserver()).onNext(req);
     verify(getObserver()).onCompleted();
   }

@@ -26,6 +26,8 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.hadoop.fs.StorageType;
+import org.apache.hadoop.hdds.client.StorageTypeUtils;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.CopyContainerRequestProto;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.CopyContainerResponseProto;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.SendContainerRequest;
@@ -98,20 +100,27 @@ public class GrpcReplicationClient implements AutoCloseable {
   }
 
   public CompletableFuture<Path> download(long containerId, Path dir) {
-    CopyContainerRequestProto request =
+    return download(containerId, dir, null);
+  }
+
+  public CompletableFuture<Path> download(
+      long containerId, Path dir, StorageType storageType) {
+    CopyContainerRequestProto.Builder request =
         CopyContainerRequestProto.newBuilder()
             .setContainerID(containerId)
             .setLen(-1)
             .setReadOffset(0)
-            .setCompression(compression.toProto())
-            .build();
+            .setCompression(compression.toProto());
+    if (storageType != null) {
+      request.setStorageTypeID(StorageTypeUtils.getID(storageType));
+    }
 
     CompletableFuture<Path> response = new CompletableFuture<>();
 
     Path destinationPath = dir
         .resolve(ContainerUtils.getContainerTarName(containerId));
 
-    client.download(request,
+    client.download(request.build(),
         new StreamDownloader(containerId, response, destinationPath));
 
     return response;

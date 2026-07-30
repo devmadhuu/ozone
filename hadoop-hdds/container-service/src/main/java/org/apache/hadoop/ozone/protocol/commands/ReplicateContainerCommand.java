@@ -22,6 +22,8 @@ import static java.util.Collections.emptyList;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import org.apache.hadoop.fs.StorageType;
+import org.apache.hadoop.hdds.client.StorageTypeUtils;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.DatanodeDetailsProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ReplicateContainerCommandProto;
@@ -42,6 +44,7 @@ public final class ReplicateContainerCommand
   private int replicaIndex = 0;
   private ReplicationCommandPriority priority =
       ReplicationCommandPriority.NORMAL;
+  private StorageType targetVolumeStorageType = StorageType.DISK;
 
   public static ReplicateContainerCommand fromSources(long containerID,
       List<DatanodeDetails> sourceDatanodes) {
@@ -78,6 +81,12 @@ public final class ReplicateContainerCommand
     replicaIndex = index;
   }
 
+  public void setTargetVolumeStorageType(StorageType storageType) {
+    if (storageType != null) {
+      targetVolumeStorageType = storageType;
+    }
+  }
+
   public void setPriority(ReplicationCommandPriority priority) {
     this.priority = priority;
   }
@@ -105,6 +114,8 @@ public final class ReplicateContainerCommand
       builder.setTarget(targetDatanode.getProtoBufMessage());
     }
     builder.setPriority(priority);
+    builder.setVolumeStorageType(
+        StorageTypeUtils.getStorageTypeProto(targetVolumeStorageType));
     return builder.build();
   }
 
@@ -131,6 +142,10 @@ public final class ReplicateContainerCommand
     if (protoMessage.hasPriority()) {
       cmd.setPriority(protoMessage.getPriority());
     }
+    if (protoMessage.hasVolumeStorageType()) {
+      cmd.setTargetVolumeStorageType(
+          StorageTypeUtils.getFromProtobuf(protoMessage.getVolumeStorageType()));
+    }
     return cmd;
   }
 
@@ -154,6 +169,10 @@ public final class ReplicateContainerCommand
     return priority;
   }
 
+  public StorageType getTargetVolumeStorageType() {
+    return targetVolumeStorageType;
+  }
+
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
@@ -170,6 +189,7 @@ public final class ReplicateContainerCommand
       sb.append(", sourceNodes=").append(sourceDatanodes);
     }
     sb.append(", priority=").append(priority);
+    sb.append(", targetVolumeStorageType=").append(targetVolumeStorageType);
     return sb.toString();
   }
 }

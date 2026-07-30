@@ -32,6 +32,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.MockDatanodeDetails;
@@ -56,7 +57,7 @@ public class TestSimpleContainerDownloader {
 
     //WHEN
     Path result = downloader.getContainerDataFromReplicas(1L, datanodes,
-        tempDir, NO_COMPRESSION);
+        tempDir, NO_COMPRESSION, StorageType.DISK);
 
     //THEN
     assertEquals(datanodes.get(0).getUuidString(),
@@ -77,7 +78,7 @@ public class TestSimpleContainerDownloader {
     //WHEN
     final Path result =
         downloader.getContainerDataFromReplicas(1L, datanodes,
-            tempDir, NO_COMPRESSION);
+            tempDir, NO_COMPRESSION, StorageType.DISK);
 
     //THEN
     //first datanode is failed, second worked
@@ -98,7 +99,7 @@ public class TestSimpleContainerDownloader {
     //WHEN
     final Path result =
         downloader.getContainerDataFromReplicas(1L, datanodes,
-            tempDir, NO_COMPRESSION);
+            tempDir, NO_COMPRESSION, StorageType.DISK);
 
     //THEN
     //first datanode is failed, second worked
@@ -123,7 +124,7 @@ public class TestSimpleContainerDownloader {
     //returned.
     for (int i = 0; i < 10000; i++) {
       Path path = downloader.getContainerDataFromReplicas(1L, datanodes,
-          tempDir, NO_COMPRESSION);
+          tempDir, NO_COMPRESSION, StorageType.DISK);
       if (path.toString().equals(datanodes.get(1).getUuidString())) {
         return;
       }
@@ -208,7 +209,7 @@ public class TestSimpleContainerDownloader {
     @Override
     protected CompletableFuture<Path> downloadContainer(
         GrpcReplicationClient client,
-        long containerId, Path downloadPath) {
+        long containerId, Path downloadPath, StorageType storageType) {
 
       DatanodeDetails datanode = datanodeRef.get();
       assertNotNull(datanode);

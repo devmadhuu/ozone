@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.MockDatanodeDetails;
@@ -115,5 +116,17 @@ public class TestReplicateContainerCommandHandler {
     } finally {
       metrics.unRegister();
     }
+  }
+
+  @Test
+  public void testStorageTypeProtobufRoundTrip() {
+    ReplicateContainerCommand command =
+        ReplicateContainerCommand.forTest(1);
+    command.setTargetVolumeStorageType(StorageType.SSD);
+
+    ReplicateContainerCommand restored =
+        ReplicateContainerCommand.getFromProtobuf(command.getProto());
+
+    assertEquals(StorageType.SSD, restored.getTargetVolumeStorageType());
   }
 }

@@ -26,6 +26,7 @@ import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.conf.StorageUnit;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
@@ -137,6 +138,12 @@ public class ContainerImporter {
     }
   }
 
+  public void importContainer(long containerID, Path tarFilePath,
+      HddsVolume targetVolume, CopyContainerCompression compression,
+      StorageType storageType) throws IOException {
+    importContainer(containerID, tarFilePath, targetVolume, compression);
+  }
+
   private static void deleteFileQuietely(Path tarFilePath) {
     try {
       Files.delete(tarFilePath);
@@ -147,13 +154,16 @@ public class ContainerImporter {
   }
 
   HddsVolume chooseNextVolume(long spaceToReserve) throws IOException {
+    return chooseNextVolume(spaceToReserve, null);
+  }
+
+  HddsVolume chooseNextVolume(long spaceToReserve, StorageType storageType)
+      throws IOException {
     // Choose volume that can hold both container in tmp and dest directory
     LOG.debug("Choosing volume to reserve space : {}", spaceToReserve);
-    // TODO: Use the target container storage type once replication/import
-    // requests carry it. Null preserves the existing any-volume behavior.
     return volumeChoosingPolicy.chooseVolume(
         StorageVolumeUtil.getHddsVolumesList(volumeSet.getVolumesList()),
-        spaceToReserve, null);
+        spaceToReserve, storageType);
   }
 
   public static Path getUntarDirectory(HddsVolume hddsVolume)

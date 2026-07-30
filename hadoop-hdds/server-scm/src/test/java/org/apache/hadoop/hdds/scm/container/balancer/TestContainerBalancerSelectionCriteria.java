@@ -32,9 +32,11 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
@@ -126,6 +128,25 @@ public class TestContainerBalancerSelectionCriteria {
   @Test
   public void shouldNotExcludeHealthyContainer() {
     assertFalse(criteria.shouldBeExcluded(containerID, source, 0L));
+  }
+
+  @Test
+  public void candidatesAreGroupedBySourceReplicaStorageType()
+      throws Exception {
+    ContainerReplica replica = ReplicationTestUtil.createContainerReplica(
+        containerID, 0, IN_SERVICE, CLOSED, 1L, OzoneConsts.GB, source,
+        source.getID()).toBuilder()
+        .setStorageType(StorageType.SSD)
+        .build();
+    when(nodeManager.isNodeRegistered(source)).thenReturn(true);
+    when(nodeManager.getContainers(source))
+        .thenReturn(new HashSet<>(Collections.singleton(containerID)));
+    when(containerManager.getContainerReplicas(containerID))
+        .thenReturn(Collections.singleton(replica));
+
+    assertTrue(criteria.getContainerIDSet(source, StorageType.SSD)
+        .contains(containerID));
+    assertTrue(criteria.getContainerIDSet(source, StorageType.DISK).isEmpty());
   }
 
   @Test

@@ -614,6 +614,7 @@ public class ECUnderReplicationHandler implements UnhealthyReplicationHandler {
       // For EC containers, we need to track the replica index which is
       // to be replicated, so add it to the command.
       replicateCommand.setReplicaIndex(replica.getReplicaIndex());
+      replicateCommand.setTargetVolumeStorageType(replica.getStorageType());
       replicationManager.sendDatanodeCommand(replicateCommand, container,
           target);
     }

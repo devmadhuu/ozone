@@ -336,7 +336,7 @@ public class TestReplicationSupervisor {
     Path res = Paths.get("file:/tmp/no-such-file");
     when(
         moc.getContainerDataFromReplicas(anyLong(), anyList(),
-            any(Path.class), any()))
+            any(Path.class), any(), any()))
         .thenReturn(res);
 
     final String testDir = tempFile.getPath();
@@ -406,7 +406,7 @@ public class TestReplicationSupervisor {
         mock(SimpleContainerDownloader.class);
     when(
         moc.getContainerDataFromReplicas(anyLong(), anyList(),
-            any(Path.class), any()))
+            any(Path.class), any(), any()))
         .thenReturn(tarFile.toPath());
 
     ContainerImporter importer =

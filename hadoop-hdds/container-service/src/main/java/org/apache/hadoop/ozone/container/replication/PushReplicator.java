@@ -19,6 +19,7 @@ package org.apache.hadoop.ozone.container.replication;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.commons.io.output.CountingOutputStream;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.utils.IOUtils;
@@ -49,6 +50,7 @@ public class PushReplicator implements ContainerReplicator {
   public void replicate(ReplicationTask task) {
     long containerID = task.getContainerId();
     DatanodeDetails target = task.getTarget();
+    StorageType targetStorageType = task.getTargetVolumeStorageType();
     CompletableFuture<Void> fut = new CompletableFuture<>();
     CopyContainerCompression compression =
         CopyContainerCompression.getConf(conf);
@@ -61,7 +63,8 @@ public class PushReplicator implements ContainerReplicator {
     CountingOutputStream output = null;
     try {
       output = new CountingOutputStream(
-          uploader.startUpload(containerID, target, fut, compression));
+          uploader.startUpload(
+              containerID, target, fut, compression, targetStorageType));
       source.copyData(containerID, output, compression);
       fut.get();
 

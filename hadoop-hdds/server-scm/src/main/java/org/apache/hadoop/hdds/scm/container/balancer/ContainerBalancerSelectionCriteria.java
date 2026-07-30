@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.NavigableSet;
 import java.util.Set;
 import java.util.TreeSet;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ContainerReplicaProto;
@@ -58,6 +59,8 @@ public class ContainerBalancerSelectionCriteria {
   private Set<ContainerID> excludeContainersDueToFailure;
   private FindSourceStrategy findSourceStrategy;
   private Map<DatanodeDetails, NavigableSet<ContainerID>> setMap;
+  private Map<DatanodeDetails,
+      Map<StorageType, NavigableSet<ContainerID>>> storageTypeSetMap;
 
   public ContainerBalancerSelectionCriteria(
       ContainerBalancerConfiguration balancerConfiguration,
@@ -76,6 +79,7 @@ public class ContainerBalancerSelectionCriteria {
     includeContainers = balancerConfiguration.getIncludeContainers();
     this.findSourceStrategy = findSourceStrategy;
     this.setMap = new HashMap<>();
+    this.storageTypeSetMap = new HashMap<>();
   }
 
   /**
@@ -104,6 +108,20 @@ public class ContainerBalancerSelectionCriteria {
     Set<ContainerID> containers = setMap.computeIfAbsent(node,
         this::getCandidateContainers);
     return containers != null ? containers : Collections.emptySet();
+  }
+
+  public Set<ContainerID> getContainerIDSet(
+      DatanodeDetails node, StorageType storageType) {
+    if (storageType == null) {
+      return getContainerIDSet(node);
+    }
+    if (!nodeManager.isNodeRegistered(node)) {
+      return Collections.emptySet();
+    }
+    Map<StorageType, NavigableSet<ContainerID>> containers =
+        storageTypeSetMap.computeIfAbsent(
+            node, this::getCandidateContainersByStorageType);
+    return containers.getOrDefault(storageType, Collections.emptyNavigableSet());
   }
 
   /**
@@ -387,5 +405,42 @@ public class ContainerBalancerSelectionCriteria {
               "containers for Container Balancer.", node, e);
       return null;
     }
+  }
+
+  private Map<StorageType, NavigableSet<ContainerID>>
+      getCandidateContainersByStorageType(DatanodeDetails node) {
+    Map<StorageType, NavigableSet<ContainerID>> result = new HashMap<>();
+    try {
+      for (ContainerID containerID : nodeManager.getContainers(node)) {
+        if (includeContainers != null && !includeContainers.isEmpty() &&
+            !includeContainers.contains(containerID)) {
+          continue;
+        }
+        if (excludeContainers.contains(containerID) ||
+            excludeContainersDueToFailure.contains(containerID) ||
+            containerToSourceMap.containsKey(containerID)) {
+          continue;
+        }
+        for (ContainerReplica replica :
+            containerManager.getContainerReplicas(containerID)) {
+          if (!replica.getDatanodeDetails().equals(node)) {
+            continue;
+          }
+          StorageType storageType = replica.getStorageType();
+          if (storageType == null || storageType == StorageType.DEFAULT) {
+            storageType = StorageType.DISK;
+          }
+          result.computeIfAbsent(storageType,
+              ignored -> new TreeSet<>(
+                  orderContainersByUsedBytes().reversed()))
+              .add(containerID);
+          break;
+        }
+      }
+    } catch (NodeNotFoundException | ContainerNotFoundException e) {
+      LOG.warn("Could not find Datanode {} or its containers while selecting " +
+          "candidate containers for Container Balancer.", node, e);
+    }
+    return result;
   }
 }

@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails.Port.Name;
@@ -59,7 +60,15 @@ public class SimpleContainerDownloader implements ContainerDownloader {
   public Path getContainerDataFromReplicas(
       long containerId, List<DatanodeDetails> sourceDatanodes,
       Path downloadDir, CopyContainerCompression compression) {
+    return getContainerDataFromReplicas(
+        containerId, sourceDatanodes, downloadDir, compression, null);
+  }
 
+  @Override
+  public Path getContainerDataFromReplicas(
+      long containerId, List<DatanodeDetails> sourceDatanodes,
+      Path downloadDir, CopyContainerCompression compression,
+      StorageType storageType) {
     if (downloadDir == null) {
       downloadDir = Paths.get(System.getProperty("java.io.tmpdir"))
               .resolve(ContainerImporter.CONTAINER_COPY_DIR);
@@ -74,7 +83,8 @@ public class SimpleContainerDownloader implements ContainerDownloader {
       try {
         client = createReplicationClient(datanode, compression);
         CompletableFuture<Path> result =
-            downloadContainer(client, containerId, downloadDir);
+            downloadContainer(
+                client, containerId, downloadDir, storageType);
         return result.get();
       } catch (InterruptedException e) {
         logError(e, containerId, datanode, i, shuffledDatanodes.size());
@@ -129,7 +139,14 @@ public class SimpleContainerDownloader implements ContainerDownloader {
   @VisibleForTesting
   protected CompletableFuture<Path> downloadContainer(
       GrpcReplicationClient client, long containerId, Path downloadDir) {
-    return client.download(containerId, downloadDir);
+    return downloadContainer(client, containerId, downloadDir, null);
+  }
+
+  @VisibleForTesting
+  protected CompletableFuture<Path> downloadContainer(
+      GrpcReplicationClient client, long containerId, Path downloadDir,
+      StorageType storageType) {
+    return client.download(containerId, downloadDir, storageType);
   }
 
   @Override

@@ -20,6 +20,7 @@ package org.apache.hadoop.ozone.container.replication;
 import java.io.Closeable;
 import java.nio.file.Path;
 import java.util.List;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 
 /**
@@ -35,5 +36,12 @@ public interface ContainerDownloader extends Closeable {
   Path getContainerDataFromReplicas(long containerId,
       List<DatanodeDetails> sources, Path downloadDir,
       CopyContainerCompression compression);
+
+  default Path getContainerDataFromReplicas(long containerId,
+      List<DatanodeDetails> sources, Path downloadDir,
+      CopyContainerCompression compression, StorageType storageType) {
+    return getContainerDataFromReplicas(
+        containerId, sources, downloadDir, compression);
+  }
 
 }

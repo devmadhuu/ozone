@@ -533,6 +533,7 @@ message CopyContainerRequestProto {
   optional uint64 len = 3;
   optional uint32 version = 4;
   optional CopyContainerCompressProto compression = 5;
+  optional int32 storageTypeID = 1000;
 }
 
 message CopyContainerResponseProto {
@@ -551,6 +552,7 @@ message SendContainerRequest {
   optional int64 checksum = 4;
   optional CopyContainerCompressProto compression = 5;
   optional int64 size = 6;
+  optional int32 storageTypeID = 1000;
 }
 
 message SendContainerResponse {

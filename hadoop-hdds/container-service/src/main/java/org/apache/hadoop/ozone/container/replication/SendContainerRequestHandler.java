@@ -23,6 +23,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import org.apache.hadoop.fs.StorageType;
+import org.apache.hadoop.hdds.client.StorageTypeUtils;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.SendContainerRequest;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.SendContainerResponse;
@@ -55,6 +57,7 @@ class SendContainerRequestHandler
   private CopyContainerCompression compression;
   private final ZeroCopyMessageMarshaller<SendContainerRequest> marshaller;
   private long spaceToReserve = 0;
+  private StorageType storageType;
 
   SendContainerRequestHandler(
       ContainerImporter importer,
@@ -85,12 +88,17 @@ class SendContainerRequestHandler
 
       if (containerId == -1) {
         containerId = req.getContainerID();
-        
+
+        if (req.hasStorageTypeID()) {
+          storageType =
+              StorageTypeUtils.getStorageTypeFromID(req.getStorageTypeID());
+        }
+
         // Use container size if available, otherwise fall back to default
         spaceToReserve = importer.getSpaceToReserve(
             req.hasSize() ? req.getSize() : null);
 
-        volume = importer.chooseNextVolume(spaceToReserve);
+        volume = importer.chooseNextVolume(spaceToReserve, storageType);
 
         Path dir = ContainerImporter.getUntarDirectory(volume);
         Files.createDirectories(dir);
@@ -137,12 +145,13 @@ class SendContainerRequestHandler
         return;
       }
 
-      LOG.info("Container {} is downloaded with size {}, starting to import.",
-          containerId, nextOffset);
+      LOG.info("Container {} is downloaded with size {} to {}, starting to import.",
+          containerId, nextOffset, storageType);
       closeOutput();
 
       try {
-        importer.importContainer(containerId, path, volume, compression);
+        importer.importContainer(
+            containerId, path, volume, compression, storageType);
         LOG.info("Container {} is replicated successfully", containerId);
         responseObserver.onNext(SendContainerResponse.newBuilder().build());
         responseObserver.onCompleted();

@@ -32,10 +32,12 @@ import java.io.OutputStream;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.MockDatanodeDetails;
 import org.apache.hadoop.ozone.container.replication.AbstractReplicationTask.Status;
+import org.apache.hadoop.ozone.protocol.commands.ReplicateContainerCommand;
 import org.apache.ozone.test.SpyOutputStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -67,9 +69,10 @@ class TestPushReplicator {
         fut -> fut.complete(null);
     SpyOutputStream output = new SpyOutputStream(NULL_OUTPUT_STREAM);
     ContainerReplicator subject = createSubject(containerID, target,
-        output, completion, compression);
-    ReplicationTask task = new ReplicationTask(toTarget(containerID, target),
-        subject);
+        output, completion, compression, StorageType.SSD);
+    ReplicateContainerCommand command = toTarget(containerID, target);
+    command.setTargetVolumeStorageType(StorageType.SSD);
+    ReplicationTask task = new ReplicationTask(command, subject);
 
     // WHEN
     subject.replicate(task);
@@ -88,9 +91,10 @@ class TestPushReplicator {
     Consumer<CompletableFuture<Void>> completion =
         fut -> fut.completeExceptionally(new Exception("testing"));
     ContainerReplicator subject = createSubject(containerID, target,
-        output, completion, NO_COMPRESSION);
-    ReplicationTask task = new ReplicationTask(toTarget(containerID, target),
-        subject);
+        output, completion, NO_COMPRESSION, StorageType.SSD);
+    ReplicateContainerCommand command = toTarget(containerID, target);
+    command.setTargetVolumeStorageType(StorageType.SSD);
+    ReplicationTask task = new ReplicationTask(command, subject);
 
     // WHEN
     subject.replicate(task);
@@ -110,9 +114,10 @@ class TestPushReplicator {
       throw new RuntimeException();
     };
     ContainerReplicator subject = createSubject(containerID, target,
-        output, completion, NO_COMPRESSION);
-    ReplicationTask task = new ReplicationTask(toTarget(containerID, target),
-        subject);
+        output, completion, NO_COMPRESSION, StorageType.SSD);
+    ReplicateContainerCommand command = toTarget(containerID, target);
+    command.setTargetVolumeStorageType(StorageType.SSD);
+    ReplicationTask task = new ReplicationTask(command, subject);
 
     // WHEN
     subject.replicate(task);
@@ -129,7 +134,7 @@ class TestPushReplicator {
   private ContainerReplicator createSubject(
       long containerID, DatanodeDetails target, OutputStream outputStream,
       Consumer<CompletableFuture<Void>> completion,
-      CopyContainerCompression compression
+      CopyContainerCompression compression, StorageType storageType
   ) throws IOException {
     ContainerReplicationSource source = mock(ContainerReplicationSource.class);
     ContainerUploader uploader = mock(ContainerUploader.class);
@@ -137,11 +142,13 @@ class TestPushReplicator {
         ArgumentCaptor.forClass(CompletableFuture.class);
     ArgumentCaptor<CopyContainerCompression> compressionArgument =
         ArgumentCaptor.forClass(CopyContainerCompression.class);
+    ArgumentCaptor<StorageType> storageTypeArgument =
+        ArgumentCaptor.forClass(StorageType.class);
 
     when(
         uploader.startUpload(eq(containerID), eq(target),
-            futureArgument.capture(), compressionArgument.capture()
-        ))
+            futureArgument.capture(), compressionArgument.capture(),
+            storageTypeArgument.capture()))
         .thenReturn(outputStream);
 
     doAnswer(invocation -> {
@@ -149,6 +156,7 @@ class TestPushReplicator {
           c -> assertEquals(compression, c)
       );
       completion.accept(futureArgument.getValue());
+      assertEquals(storageType, storageTypeArgument.getValue());
       return null;
     })
         .when(source)

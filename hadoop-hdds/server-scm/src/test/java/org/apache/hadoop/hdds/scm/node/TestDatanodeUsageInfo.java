@@ -20,6 +20,8 @@ package org.apache.hadoop.hdds.scm.node;
 import static org.apache.hadoop.hdds.protocol.MockDatanodeDetails.randomDatanodeDetails;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.Map;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.DatanodeUsageInfoProto;
 import org.apache.hadoop.hdds.scm.container.placement.metrics.SCMNodeStat;
@@ -66,5 +68,21 @@ class TestDatanodeUsageInfo {
     assertThat(proto.getFsCapacity()).isEqualTo(2000L);
     assertThat(proto.getFsAvailable()).isEqualTo(1500L);
   }
-}
 
+  @Test
+  void testCalculateUtilizationPerStorageType() {
+    SCMNodeStat stat = new SCMNodeStat();
+    stat.add(1000L, 100L, 900L, 0L, 0L, 0L, StorageType.SSD);
+    stat.add(2000L, 1000L, 1000L, 0L, 0L, 0L, StorageType.ARCHIVE);
+    DatanodeUsageInfo info =
+        new DatanodeUsageInfo(randomDatanodeDetails(), stat);
+
+    Map<StorageType, Double> utilization =
+        info.calculateUtilizationPerStorageType();
+
+    assertThat(utilization)
+        .containsEntry(StorageType.SSD, 0.1)
+        .containsEntry(StorageType.ARCHIVE, 0.5)
+        .doesNotContainKey(StorageType.DISK);
+  }
+}

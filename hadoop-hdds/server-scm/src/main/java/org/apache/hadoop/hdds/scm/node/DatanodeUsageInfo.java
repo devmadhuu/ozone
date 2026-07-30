@@ -18,6 +18,9 @@
 package org.apache.hadoop.hdds.scm.node;
 
 import java.util.Comparator;
+import java.util.EnumMap;
+import java.util.Map;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.DatanodeID;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.DatanodeUsageInfoProto;
@@ -91,6 +94,16 @@ public class DatanodeUsageInfo {
     return numerator / (double) capacity;
   }
 
+  public Double calculateUtilization(
+      long plusSize, StorageType storageType) {
+    long capacity = scmNodeStat.getCapacity(storageType).get();
+    if (capacity == 0) {
+      return null;
+    }
+    long remaining = scmNodeStat.getRemaining(storageType).get();
+    return (capacity - remaining + plusSize) / (double) capacity;
+  }
+
   /**
    * Calculates current utilization of a datanode .
    * Utilization of a datanode is defined as its used space divided
@@ -102,6 +115,23 @@ public class DatanodeUsageInfo {
    */
   public double calculateUtilization() {
     return calculateUtilization(0);
+  }
+
+  public Map<StorageType, Double> calculateUtilizationPerStorageType() {
+    Map<StorageType, Double> result = new EnumMap<>(StorageType.class);
+    for (StorageType storageType : StorageType.values()) {
+      if (storageType == StorageType.DEFAULT) {
+        continue;
+      }
+      Double utilization = calculateUtilization(0, storageType);
+      if (utilization != null) {
+        result.put(storageType, utilization);
+      }
+    }
+    if (result.isEmpty() && scmNodeStat.getCapacity().get() > 0) {
+      result.put(StorageType.DISK, calculateUtilization());
+    }
+    return result;
   }
 
   /**

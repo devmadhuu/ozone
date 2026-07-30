@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.ozone.container.common.impl.ContainerSet;
@@ -65,22 +66,24 @@ public class DownloadAndImportReplicator implements ContainerReplicator {
     }
 
     List<DatanodeDetails> sourceDatanodes = task.getSources();
+    StorageType targetStorageType = task.getTargetVolumeStorageType();
     CopyContainerCompression compression =
         CopyContainerCompression.getConf(conf);
 
-    LOG.info("Starting replication of container {} from {} using {}",
-        containerID, sourceDatanodes, compression);
+    LOG.info("Starting replication of container {} from {} using {} to {}",
+        containerID, sourceDatanodes, compression, targetStorageType);
     HddsVolume targetVolume = null;
 
     try {
       targetVolume = containerImporter.chooseNextVolume(
-          containerImporter.getDefaultReplicationSpace());
+          containerImporter.getDefaultReplicationSpace(), targetStorageType);
 
       // Wait for the download. This thread pool is limiting the parallel
       // downloads, so it's ok to block here and wait for the full download.
       Path tarFilePath =
           downloader.getContainerDataFromReplicas(containerID, sourceDatanodes,
-              ContainerImporter.getUntarDirectory(targetVolume), compression);
+              ContainerImporter.getUntarDirectory(targetVolume), compression,
+              targetStorageType);
       if (tarFilePath == null) {
         task.setStatus(Status.FAILED);
         return;
@@ -91,7 +94,7 @@ public class DownloadAndImportReplicator implements ContainerReplicator {
       task.setTransferredBytes(bytes);
 
       containerImporter.importContainer(containerID, tarFilePath, targetVolume,
-          compression);
+          compression, targetStorageType);
 
       LOG.info("Container {} is replicated successfully", containerID);
       task.setStatus(Status.DONE);

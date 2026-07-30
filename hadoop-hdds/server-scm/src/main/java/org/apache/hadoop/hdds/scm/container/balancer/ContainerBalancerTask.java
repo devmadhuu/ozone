@@ -45,6 +45,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.HddsConfigKeys;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
@@ -91,9 +92,10 @@ public class ContainerBalancerTask implements Runnable {
   private long sizeScheduledForMoveInLatestIteration;
   // count actual size moved in bytes
   private long sizeActuallyMovedInLatestIteration;
-  private final List<DatanodeUsageInfo> overUtilizedNodes;
-  private final List<DatanodeUsageInfo> underUtilizedNodes;
-  private List<DatanodeUsageInfo> withinThresholdUtilizedNodes;
+  private final Map<StorageType, List<DatanodeUsageInfo>> overUtilizedNodes;
+  private final Map<StorageType, List<DatanodeUsageInfo>> underUtilizedNodes;
+  private final Map<StorageType,
+      List<DatanodeUsageInfo>> withinThresholdUtilizedNodes;
   private Set<String> excludeNodes;
   private Set<String> includeNodes;
   private ContainerBalancerConfiguration config;
@@ -152,9 +154,9 @@ public class ContainerBalancerTask implements Runnable {
     this.config = config;
     this.metrics = metrics;
     this.scmContext = scm.getScmContext();
-    this.overUtilizedNodes = new ArrayList<>();
-    this.underUtilizedNodes = new ArrayList<>();
-    this.withinThresholdUtilizedNodes = new ArrayList<>();
+    this.overUtilizedNodes = new HashMap<>();
+    this.underUtilizedNodes = new HashMap<>();
+    this.withinThresholdUtilizedNodes = new HashMap<>();
     PlacementPolicyValidateProxy placementPolicyValidateProxy = scm.getPlacementPolicyValidateProxy();
     NetworkTopology networkTopology = scm.getClusterMap();
     this.nextIterationIndex = nextIterationIndex;
@@ -495,74 +497,82 @@ public class ContainerBalancerTask implements Runnable {
       LOG.debug("Lower limit for utilization is {} and Upper limit for utilization is {}", lowerLimit, upperLimit);
     }
 
-    long totalOverUtilizedBytes = 0L, totalUnderUtilizedBytes = 0L;
+    Map<StorageType, Long> totalOverUtilizedBytes = new HashMap<>();
+    Map<StorageType, Long> totalUnderUtilizedBytes = new HashMap<>();
     // find over and under utilized nodes
     for (DatanodeUsageInfo datanodeUsageInfo : datanodeUsageInfos) {
       if (!isBalancerRunning()) {
         return false;
       }
-      double utilization = datanodeUsageInfo.calculateUtilization();
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("Utilization for node {} with capacity {}B, used {}B, and " +
-                "remaining {}B is {}",
-            datanodeUsageInfo.getDatanodeDetails(),
-            datanodeUsageInfo.getScmNodeStat().getCapacity().get(),
-            datanodeUsageInfo.getScmNodeStat().getScmUsed().get(),
-            datanodeUsageInfo.getScmNodeStat().getRemaining().get(),
-            utilization);
-      }
-      if (Double.compare(utilization, upperLimit) > 0) {
-        overUtilizedNodes.add(datanodeUsageInfo);
-        metrics.incrementNumDatanodesUnbalanced(1);
-
-        // amount of bytes greater than upper limit in this node
-        long overUtilizedBytes = ratioToBytes(
-            datanodeUsageInfo.getScmNodeStat().getCapacity().get(),
-            utilization) - ratioToBytes(
-            datanodeUsageInfo.getScmNodeStat().getCapacity().get(),
-            upperLimit);
-        totalOverUtilizedBytes += overUtilizedBytes;
-      } else if (Double.compare(utilization, lowerLimit) < 0) {
-        underUtilizedNodes.add(datanodeUsageInfo);
-        metrics.incrementNumDatanodesUnbalanced(1);
-
-        // amount of bytes lesser than lower limit in this node
-        long underUtilizedBytes = ratioToBytes(
-            datanodeUsageInfo.getScmNodeStat().getCapacity().get(),
-            lowerLimit) - ratioToBytes(
-            datanodeUsageInfo.getScmNodeStat().getCapacity().get(),
-            utilization);
-        totalUnderUtilizedBytes += underUtilizedBytes;
-      } else {
-        withinThresholdUtilizedNodes.add(datanodeUsageInfo);
+      for (Map.Entry<StorageType, Double> entry :
+          datanodeUsageInfo.calculateUtilizationPerStorageType().entrySet()) {
+        StorageType storageType = entry.getKey();
+        double utilization = entry.getValue();
+        long capacity = getCapacity(datanodeUsageInfo, storageType);
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Utilization for node {} storage type {} with capacity " +
+                  "{}B is {}",
+              datanodeUsageInfo.getDatanodeDetails(), storageType, capacity,
+              utilization);
+        }
+        if (Double.compare(utilization, upperLimit) > 0) {
+          overUtilizedNodes.computeIfAbsent(
+              storageType, ignored -> new ArrayList<>())
+              .add(datanodeUsageInfo);
+          metrics.incrementNumDatanodesUnbalanced(1);
+          long overUtilizedBytes = ratioToBytes(capacity, utilization) -
+              ratioToBytes(capacity, upperLimit);
+          totalOverUtilizedBytes.merge(
+              storageType, overUtilizedBytes, Long::sum);
+        } else if (Double.compare(utilization, lowerLimit) < 0) {
+          underUtilizedNodes.computeIfAbsent(
+              storageType, ignored -> new ArrayList<>())
+              .add(datanodeUsageInfo);
+          metrics.incrementNumDatanodesUnbalanced(1);
+          long underUtilizedBytes = ratioToBytes(capacity, lowerLimit) -
+              ratioToBytes(capacity, utilization);
+          totalUnderUtilizedBytes.merge(
+              storageType, underUtilizedBytes, Long::sum);
+        } else {
+          withinThresholdUtilizedNodes.computeIfAbsent(
+              storageType, ignored -> new ArrayList<>())
+              .add(datanodeUsageInfo);
+        }
       }
     }
+    Set<StorageType> storageTypes = new HashSet<>();
+    storageTypes.addAll(totalOverUtilizedBytes.keySet());
+    storageTypes.addAll(totalUnderUtilizedBytes.keySet());
+    long totalUnbalancedBytes = 0;
+    for (StorageType storageType : storageTypes) {
+      totalUnbalancedBytes += Math.max(
+          totalOverUtilizedBytes.getOrDefault(storageType, 0L),
+          totalUnderUtilizedBytes.getOrDefault(storageType, 0L));
+    }
     metrics.incrementDataSizeUnbalancedGB(
-        Math.max(totalOverUtilizedBytes, totalUnderUtilizedBytes) /
-            OzoneConsts.GB);
-    Collections.reverse(underUtilizedNodes);
+        totalUnbalancedBytes / OzoneConsts.GB);
+    underUtilizedNodes.values().forEach(Collections::reverse);
 
     if (overUtilizedNodes.isEmpty() && underUtilizedNodes.isEmpty()) {
       LOG.info("Did not find any unbalanced Datanodes.");
       return false;
     }
 
-    LOG.info("Container Balancer has identified {} Over-Utilized and {} " +
-            "Under-Utilized Datanodes that need to be balanced.",
-        overUtilizedNodes.size(), underUtilizedNodes.size());
+    LOG.info("Container Balancer has identified {} over-utilized and {} " +
+            "under-utilized datanode storage types that need to be balanced.",
+        countNodes(overUtilizedNodes), countNodes(underUtilizedNodes));
 
     if (LOG.isDebugEnabled()) {
-      overUtilizedNodes.forEach(entry -> {
-        LOG.debug("Datanode {} {} is Over-Utilized.",
-            entry.getDatanodeDetails().getHostName(),
-            entry.getDatanodeDetails().getID());
-      });
-
-      underUtilizedNodes.forEach(entry -> {
-        LOG.debug("Datanode {} {} is Under-Utilized.",
-            entry.getDatanodeDetails().getHostName(),
-            entry.getDatanodeDetails().getID());
-      });
+      overUtilizedNodes.forEach((storageType, nodes) ->
+          nodes.forEach(node -> LOG.debug(
+              "Datanode {} {} storage type {} is over-utilized.",
+              node.getDatanodeDetails().getHostName(),
+              node.getDatanodeDetails().getID(), storageType)));
+      underUtilizedNodes.forEach((storageType, nodes) ->
+          nodes.forEach(node -> LOG.debug(
+              "Datanode {} {} storage type {} is under-utilized.",
+              node.getDatanodeDetails().getHostName(),
+              node.getDatanodeDetails().getID(), storageType)));
     }
 
     selectionCriteria = new ContainerBalancerSelectionCriteria(config,
@@ -584,17 +594,44 @@ public class ContainerBalancerTask implements Runnable {
   }
 
   private IterationResult doIteration() {
-    // note that potential and selected targets are updated in the following
-    // loop
-    //TODO(jacksonyao): take withinThresholdUtilizedNodes as candidate for both
-    // source and target
-    List<DatanodeUsageInfo> potentialTargets = getPotentialTargets();
-    findTargetStrategy.reInitialize(potentialTargets, config, upperLimit);
-    findSourceStrategy.reInitialize(getPotentialSources(), config, lowerLimit);
-
     moveSelectionToFutureMap = new ConcurrentHashMap<>();
     boolean isMoveGeneratedInThisIteration = false;
     iterationResult = IterationResult.ITERATION_COMPLETED;
+    Set<StorageType> storageTypes = new HashSet<>();
+    storageTypes.addAll(getPotentialSources().keySet());
+    storageTypes.addAll(getPotentialTargets().keySet());
+    for (StorageType storageType : storageTypes) {
+      if (!isBalancerRunning()) {
+        iterationResult = IterationResult.ITERATION_INTERRUPTED;
+        break;
+      }
+      List<DatanodeUsageInfo> potentialSources =
+          getPotentialSources().get(storageType);
+      List<DatanodeUsageInfo> potentialTargets =
+          getPotentialTargets().get(storageType);
+      if (potentialSources == null || potentialSources.isEmpty() ||
+          potentialTargets == null || potentialTargets.isEmpty()) {
+        LOG.info("Skipping Container Balancer for storage type {} because " +
+                "sources or targets are unavailable.", storageType);
+        continue;
+      }
+      isMoveGeneratedInThisIteration |= doIteration(
+          storageType, potentialSources, potentialTargets);
+      if (reachedMaxSizeToMovePerIteration()) {
+        break;
+      }
+    }
+    checkIterationResults(isMoveGeneratedInThisIteration);
+    return iterationResult;
+  }
+
+  private boolean doIteration(StorageType storageType,
+      List<DatanodeUsageInfo> potentialSources,
+      List<DatanodeUsageInfo> potentialTargets) {
+    findTargetStrategy.reInitialize(potentialTargets, config, upperLimit);
+    findSourceStrategy.reInitialize(potentialSources, config, lowerLimit);
+
+    boolean isMoveGenerated = false;
     boolean canAdaptWhenNearingLimits = true;
     boolean canAdaptOnReachingLimits = true;
 
@@ -633,10 +670,11 @@ public class ContainerBalancerTask implements Runnable {
         break;
       }
 
-      ContainerMoveSelection moveSelection = matchSourceWithTarget(source);
+      ContainerMoveSelection moveSelection =
+          matchSourceWithTarget(source, storageType);
       if (moveSelection != null) {
-        if (processMoveSelection(source, moveSelection)) {
-          isMoveGeneratedInThisIteration = true;
+        if (processMoveSelection(source, moveSelection, storageType)) {
+          isMoveGenerated = true;
         }
       } else {
         // can not find any target for this source
@@ -644,12 +682,11 @@ public class ContainerBalancerTask implements Runnable {
       }
     }
 
-    checkIterationResults(isMoveGeneratedInThisIteration);
-    return iterationResult;
+    return isMoveGenerated;
   }
 
   private boolean processMoveSelection(DatanodeDetails source,
-                                       ContainerMoveSelection moveSelection) {
+      ContainerMoveSelection moveSelection, StorageType storageType) {
     ContainerID containerID = moveSelection.getContainerID();
     if (containerToSourceMap.containsKey(containerID) ||
         containerToTargetMap.containsKey(containerID)) {
@@ -678,9 +715,10 @@ public class ContainerBalancerTask implements Runnable {
       selectionCriteria.addToExcludeDueToFailContainers(moveSelection.getContainerID());
       return false;
     }
-    LOG.info("ContainerBalancer is trying to move container {} with size " +
-            "{}B from source datanode {} to target datanode {}",
-        containerID.toString(),
+    LOG.info("ContainerBalancer is trying to move container {} on storage " +
+            "type {} with size {}B from source datanode {} to target " +
+            "datanode {}",
+        containerID, storageType,
         containerInfo.getUsedBytes(),
         source,
         moveSelection.getTargetNode());
@@ -808,14 +846,15 @@ public class ContainerBalancerTask implements Runnable {
    *
    * @return ContainerMoveSelection containing the selected target and container
    */
-  private ContainerMoveSelection matchSourceWithTarget(DatanodeDetails source) {
+  private ContainerMoveSelection matchSourceWithTarget(
+      DatanodeDetails source, StorageType storageType) {
     Set<ContainerID> sourceContainerIDSet =
-        selectionCriteria.getContainerIDSet(source);
+        selectionCriteria.getContainerIDSet(source, storageType);
 
     if (sourceContainerIDSet.isEmpty()) {
       if (LOG.isDebugEnabled()) {
         LOG.debug("ContainerBalancer could not find any candidate containers " +
-            "for datanode {}", source);
+            "for datanode {} and storage type {}", source, storageType);
       }
       return null;
     }
@@ -848,7 +887,8 @@ public class ContainerBalancerTask implements Runnable {
       return null;
     }
     LOG.info("ContainerBalancer matched source datanode {} with target " +
-            "datanode {} for container move.", source, moveSelection.getTargetNode());
+            "datanode {} for storage type {} container move.", source,
+        moveSelection.getTargetNode(), storageType);
 
     return moveSelection;
   }
@@ -929,12 +969,13 @@ public class ContainerBalancerTask implements Runnable {
    * if the move completed with MoveResult.COMPLETED or move is not yet done
    */
   private boolean moveContainer(DatanodeDetails source,
-                                ContainerMoveSelection moveSelection) {
+      ContainerMoveSelection moveSelection) {
     ContainerID containerID = moveSelection.getContainerID();
     CompletableFuture<MoveManager.MoveResult> future;
     try {
       ContainerInfo containerInfo = containerManager.getContainer(containerID);
-      future = moveManager.move(containerID, source, moveSelection.getTargetNode());
+      future = moveManager.move(
+          containerID, source, moveSelection.getTargetNode());
 
       metrics.incrementNumContainerMovesScheduledInLatestIteration(1);
 
@@ -1051,6 +1092,21 @@ public class ContainerBalancerTask implements Runnable {
     return (long) (nodeCapacity * utilizationRatio);
   }
 
+  private static int countNodes(
+      Map<StorageType, List<DatanodeUsageInfo>> nodesByStorageType) {
+    return nodesByStorageType.values().stream()
+        .mapToInt(List::size)
+        .sum();
+  }
+
+  private static long getCapacity(
+      DatanodeUsageInfo usageInfo, StorageType storageType) {
+    long capacity =
+        usageInfo.getScmNodeStat().getCapacity(storageType).get();
+    return capacity > 0
+        ? capacity : usageInfo.getScmNodeStat().getCapacity().get();
+  }
+
   /**
    * Calculates the average utilization for the specified nodes.
    * Utilization is (capacity - remaining) divided by capacity.
@@ -1081,7 +1137,8 @@ public class ContainerBalancerTask implements Runnable {
    *
    * @return A list of potential target DatanodeUsageInfo.
    */
-  private List<DatanodeUsageInfo> getPotentialTargets() {
+  @VisibleForTesting
+  Map<StorageType, List<DatanodeUsageInfo>> getPotentialTargets() {
     //TODO(jacksonyao): take withinThresholdUtilizedNodes as candidate for both
     // source and target
     return underUtilizedNodes;
@@ -1093,7 +1150,8 @@ public class ContainerBalancerTask implements Runnable {
    *
    * @return A list of potential source DatanodeUsageInfo.
    */
-  private List<DatanodeUsageInfo> getPotentialSources() {
+  @VisibleForTesting
+  Map<StorageType, List<DatanodeUsageInfo>> getPotentialSources() {
     //TODO(jacksonyao): take withinThresholdUtilizedNodes as candidate for both
     // source and target
     return overUtilizedNodes;
@@ -1155,6 +1213,7 @@ public class ContainerBalancerTask implements Runnable {
     moveManager.resetState();
     this.overUtilizedNodes.clear();
     this.underUtilizedNodes.clear();
+    this.withinThresholdUtilizedNodes.clear();
     this.containerToSourceMap.clear();
     this.containerToTargetMap.clear();
     this.selectedSources.clear();
@@ -1184,12 +1243,19 @@ public class ContainerBalancerTask implements Runnable {
 
   @VisibleForTesting
   public List<DatanodeUsageInfo> getOverUtilizedNodes() {
-    return overUtilizedNodes;
+    return flatten(overUtilizedNodes);
   }
 
   @VisibleForTesting
   public List<DatanodeUsageInfo> getUnderUtilizedNodes() {
-    return underUtilizedNodes;
+    return flatten(underUtilizedNodes);
+  }
+
+  private static List<DatanodeUsageInfo> flatten(
+      Map<StorageType, List<DatanodeUsageInfo>> nodesByStorageType) {
+    return nodesByStorageType.values().stream()
+        .flatMap(Collection::stream)
+        .collect(Collectors.toList());
   }
 
   /**

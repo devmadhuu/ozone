@@ -365,10 +365,16 @@ public abstract class SCMCommonPlacementPolicy implements
   public List<DatanodeDetails> getResultSet(
       int nodesRequired, List<DatanodeDetails> healthyNodes)
       throws SCMException {
+    return getResultSet(nodesRequired, healthyNodes, null);
+  }
+
+  public List<DatanodeDetails> getResultSet(
+      int nodesRequired, List<DatanodeDetails> healthyNodes,
+      StorageType storageType) throws SCMException {
     List<DatanodeDetails> results = new ArrayList<>();
     for (int x = 0; x < nodesRequired; x++) {
       // invoke the choose function defined in the derived classes.
-      DatanodeDetails nodeId = chooseNode(healthyNodes);
+      DatanodeDetails nodeId = chooseNode(healthyNodes, storageType);
       if (nodeId != null) {
         removePeers(nodeId, healthyNodes);
         results.add(nodeId);
@@ -395,6 +401,11 @@ public abstract class SCMCommonPlacementPolicy implements
    */
   public abstract DatanodeDetails chooseNode(
       List<DatanodeDetails> healthyNodes);
+
+  public DatanodeDetails chooseNode(
+      List<DatanodeDetails> healthyNodes, StorageType storageType) {
+    return chooseNode(healthyNodes);
+  }
 
   /**
    * Default implementation to return the number of racks containers should span

@@ -114,7 +114,7 @@ public final class SCMContainerPlacementCapacity
     if (healthyNodes.size() == nodesRequired) {
       return healthyNodes;
     }
-    return getResultSet(nodesRequired, healthyNodes);
+    return getResultSet(nodesRequired, healthyNodes, storageType);
   }
 
   /**
@@ -127,6 +127,12 @@ public final class SCMContainerPlacementCapacity
    */
   @Override
   public DatanodeDetails chooseNode(List<DatanodeDetails> healthyNodes) {
+    return chooseNode(healthyNodes, null);
+  }
+
+  @Override
+  public DatanodeDetails chooseNode(List<DatanodeDetails> healthyNodes,
+      StorageType storageType) {
     metrics.incrDatanodeChooseAttemptCount();
     int firstNodeNdx = getRand().nextInt(healthyNodes.size());
     int secondNodeNdx = getRand().nextInt(healthyNodes.size());
@@ -143,7 +149,8 @@ public final class SCMContainerPlacementCapacity
           getNodeManager().getNodeStat(firstNodeDetails);
       SCMNodeMetric secondNodeMetric =
           getNodeManager().getNodeStat(secondNodeDetails);
-      datanodeDetails = !firstNodeMetric.isGreater(secondNodeMetric.get())
+      datanodeDetails = !firstNodeMetric.isGreater(
+          secondNodeMetric.get(), storageType)
           ? firstNodeDetails : secondNodeDetails;
     }
     healthyNodes.remove(datanodeDetails);

@@ -20,6 +20,7 @@ package org.apache.hadoop.ozone.container.replication;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.concurrent.CompletableFuture;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 
 /**
@@ -29,4 +30,10 @@ public interface ContainerUploader {
   OutputStream startUpload(long containerId, DatanodeDetails target,
       CompletableFuture<Void> callback, CopyContainerCompression compression)
       throws IOException;
+
+  default OutputStream startUpload(long containerId, DatanodeDetails target,
+      CompletableFuture<Void> callback, CopyContainerCompression compression,
+      StorageType storageType) throws IOException {
+    return startUpload(containerId, target, callback, compression);
+  }
 }
