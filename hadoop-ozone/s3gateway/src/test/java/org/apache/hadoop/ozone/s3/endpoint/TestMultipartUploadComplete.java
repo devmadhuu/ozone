@@ -41,9 +41,11 @@ import javax.ws.rs.core.Response;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneClientStub;
+import org.apache.hadoop.ozone.client.OzoneKeyDetails;
 import org.apache.hadoop.ozone.s3.endpoint.CompleteMultipartUploadRequest.Part;
 import org.apache.hadoop.ozone.s3.exception.OS3Exception;
 import org.apache.hadoop.ozone.s3.exception.S3ErrorTable;
+import org.apache.hadoop.ozone.s3.util.S3StorageClass;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -102,6 +104,26 @@ public class TestMultipartUploadComplete {
     partsList.add(uploadPart(rest, OzoneConsts.S3_BUCKET, OzoneConsts.KEY, 2, uploadID, "Multipart Upload 2"));
 
     completeMultipartUpload(rest, OzoneConsts.S3_BUCKET, OzoneConsts.KEY, uploadID, partsList);
+  }
+
+  @Test
+  public void testMultipartWithStoragePolicy() throws Exception {
+    for (S3StorageClass storageClass : S3StorageClass.values()) {
+      String key = UUID.randomUUID().toString();
+      when(headers.getHeaderString(STORAGE_CLASS_HEADER))
+          .thenReturn(storageClass.getS3StorageClass());
+
+      String uploadID = initiateMultipartUpload(key);
+      Part part = uploadPart(rest, OzoneConsts.S3_BUCKET, key, 1, uploadID,
+          "Multipart Upload");
+      completeMultipartUpload(rest, OzoneConsts.S3_BUCKET, key, uploadID,
+          singletonList(part));
+
+      OzoneKeyDetails keyDetails = client.getObjectStore()
+          .getS3Bucket(OzoneConsts.S3_BUCKET).getKey(key);
+      assertEquals(storageClass.getStoragePolicy(),
+          keyDetails.getStoragePolicy());
+    }
   }
 
   @Test

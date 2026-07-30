@@ -401,6 +401,19 @@ public interface ClientProtocol {
       throws IOException;
 
   /**
+   * Creates a key with the requested StoragePolicy only if it does not exist.
+   */
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  default OzoneOutputStream createKeyIfNotExists(String volumeName,
+      String bucketName, String keyName, long size,
+      ReplicationConfig replicationConfig, Map<String, String> metadata,
+      Map<String, String> tags, StoragePolicy storagePolicy)
+      throws IOException {
+    return createKeyIfNotExists(volumeName, bucketName, keyName, size,
+        replicationConfig, metadata, tags);
+  }
+
+  /**
    * Rewrites a key only if its ETag matches (S3 If-Match semantics).
    *
    * @param volumeName Name of the Volume
@@ -419,6 +432,19 @@ public interface ClientProtocol {
       String keyName, long size, String expectedETag,
       ReplicationConfig replicationConfig, Map<String, String> metadata,
       Map<String, String> tags) throws IOException;
+
+  /**
+   * Rewrites a key with the requested StoragePolicy only if its ETag matches.
+   */
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  default OzoneOutputStream rewriteKeyIfMatch(String volumeName,
+      String bucketName, String keyName, long size, String expectedETag,
+      ReplicationConfig replicationConfig, Map<String, String> metadata,
+      Map<String, String> tags, StoragePolicy storagePolicy)
+      throws IOException {
+    return rewriteKeyIfMatch(volumeName, bucketName, keyName, size,
+        expectedETag, replicationConfig, metadata, tags);
+  }
 
   /**
    * Writes a key in an existing bucket.
@@ -527,6 +553,20 @@ public interface ClientProtocol {
       Map<String, String> tags) throws IOException;
 
   /**
+   * Creates a stream key with the requested StoragePolicy only if it does not
+   * exist.
+   */
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  default OzoneDataStreamOutput createStreamKeyIfNotExists(String volumeName,
+      String bucketName, String keyName, long size,
+      ReplicationConfig replicationConfig, Map<String, String> metadata,
+      Map<String, String> tags, StoragePolicy storagePolicy)
+      throws IOException {
+    return createStreamKeyIfNotExists(volumeName, bucketName, keyName, size,
+        replicationConfig, metadata, tags);
+  }
+
+  /**
    * Writes a key in an existing bucket only if its ETag matches
    * (S3 If-Match semantics).
    *
@@ -546,6 +586,20 @@ public interface ClientProtocol {
       String bucketName, String keyName, long size, String expectedETag,
       ReplicationConfig replicationConfig, Map<String, String> metadata,
       Map<String, String> tags) throws IOException;
+
+  /**
+   * Rewrites a stream key with the requested StoragePolicy only if its ETag
+   * matches.
+   */
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  default OzoneDataStreamOutput rewriteStreamKeyIfMatch(String volumeName,
+      String bucketName, String keyName, long size, String expectedETag,
+      ReplicationConfig replicationConfig, Map<String, String> metadata,
+      Map<String, String> tags, StoragePolicy storagePolicy)
+      throws IOException {
+    return rewriteStreamKeyIfMatch(volumeName, bucketName, keyName, size,
+        expectedETag, replicationConfig, metadata, tags);
+  }
 
   /**
    * Reads a key from an existing bucket.

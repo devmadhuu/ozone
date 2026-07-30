@@ -31,7 +31,9 @@ public enum S3StorageType {
   REDUCED_REDUNDANCY(RatisReplicationConfig.getInstance(HddsProtos.ReplicationFactor.ONE)),
   STANDARD(
       RatisReplicationConfig.getInstance(HddsProtos.ReplicationFactor.THREE)),
-  STANDARD_IA(new ECReplicationConfig(3, 2));
+  STANDARD_IA(new ECReplicationConfig(3, 2)),
+  GLACIER(
+      RatisReplicationConfig.getInstance(HddsProtos.ReplicationFactor.THREE));
 
   private final ReplicationConfig replicationConfig;
 

@@ -1460,12 +1460,26 @@ public class RpcClient implements ClientProtocol {
       String bucketName, String keyName, long size,
       ReplicationConfig replicationConfig, Map<String, String> metadata,
       Map<String, String> tags) throws IOException {
+    return createKeyIfNotExists(volumeName, bucketName, keyName, size,
+        replicationConfig, metadata, tags, null);
+  }
+
+  @Override
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  public OzoneOutputStream createKeyIfNotExists(String volumeName,
+      String bucketName, String keyName, long size,
+      ReplicationConfig replicationConfig, Map<String, String> metadata,
+      Map<String, String> tags, StoragePolicy storagePolicy)
+      throws IOException {
     if (omVersion.compareTo(OzoneManagerVersion.ATOMIC_REWRITE_KEY) < 0) {
       throw new IOException(
           "OzoneManager does not support atomic key creation.");
     }
     OmKeyArgs.Builder builder = createWriteKeyArgsBuilder(volumeName,
         bucketName, keyName, size, replicationConfig, metadata, tags);
+    if (storagePolicy != null) {
+      builder.setStoragePolicy(storagePolicy);
+    }
     builder.setExpectedDataGeneration(
         OzoneConsts.EXPECTED_GEN_CREATE_IF_NOT_EXISTS);
     return openOutputStream(builder.build(), size);
@@ -1477,12 +1491,26 @@ public class RpcClient implements ClientProtocol {
       String bucketName, String keyName, long size, String expectedETag,
       ReplicationConfig replicationConfig, Map<String, String> metadata,
       Map<String, String> tags) throws IOException {
+    return rewriteKeyIfMatch(volumeName, bucketName, keyName, size,
+        expectedETag, replicationConfig, metadata, tags, null);
+  }
+
+  @Override
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  public OzoneOutputStream rewriteKeyIfMatch(String volumeName,
+      String bucketName, String keyName, long size, String expectedETag,
+      ReplicationConfig replicationConfig, Map<String, String> metadata,
+      Map<String, String> tags, StoragePolicy storagePolicy)
+      throws IOException {
     if (omVersion.compareTo(OzoneManagerVersion.ATOMIC_REWRITE_KEY) < 0) {
       throw new IOException(
           "OzoneManager does not support conditional key rewrite.");
     }
     OmKeyArgs.Builder builder = createWriteKeyArgsBuilder(volumeName,
         bucketName, keyName, size, replicationConfig, metadata, tags);
+    if (storagePolicy != null) {
+      builder.setStoragePolicy(storagePolicy);
+    }
     builder.setExpectedETag(expectedETag);
     return openOutputStream(builder.build(), size);
   }
@@ -1584,6 +1612,17 @@ public class RpcClient implements ClientProtocol {
       String bucketName, String keyName, long size,
       ReplicationConfig replicationConfig, Map<String, String> metadata,
       Map<String, String> tags) throws IOException {
+    return createStreamKeyIfNotExists(volumeName, bucketName, keyName, size,
+        replicationConfig, metadata, tags, null);
+  }
+
+  @Override
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  public OzoneDataStreamOutput createStreamKeyIfNotExists(String volumeName,
+      String bucketName, String keyName, long size,
+      ReplicationConfig replicationConfig, Map<String, String> metadata,
+      Map<String, String> tags, StoragePolicy storagePolicy)
+      throws IOException {
     if (omVersion.compareTo(OzoneManagerVersion.ATOMIC_REWRITE_KEY) < 0) {
       throw new IOException(
           "OzoneManager does not support atomic key creation.");
@@ -1591,6 +1630,9 @@ public class RpcClient implements ClientProtocol {
     OmKeyArgs.Builder builder = createStreamKeyArgsBuilder(
         volumeName, bucketName, keyName, size, replicationConfig, metadata,
         tags);
+    if (storagePolicy != null) {
+      builder.setStoragePolicy(storagePolicy);
+    }
     builder.setExpectedDataGeneration(
         OzoneConsts.EXPECTED_GEN_CREATE_IF_NOT_EXISTS);
     return openDataStreamOutput(builder.build());
@@ -1602,6 +1644,17 @@ public class RpcClient implements ClientProtocol {
       String bucketName, String keyName, long size, String expectedETag,
       ReplicationConfig replicationConfig, Map<String, String> metadata,
       Map<String, String> tags) throws IOException {
+    return rewriteStreamKeyIfMatch(volumeName, bucketName, keyName, size,
+        expectedETag, replicationConfig, metadata, tags, null);
+  }
+
+  @Override
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  public OzoneDataStreamOutput rewriteStreamKeyIfMatch(String volumeName,
+      String bucketName, String keyName, long size, String expectedETag,
+      ReplicationConfig replicationConfig, Map<String, String> metadata,
+      Map<String, String> tags, StoragePolicy storagePolicy)
+      throws IOException {
     if (omVersion.compareTo(OzoneManagerVersion.ATOMIC_REWRITE_KEY) < 0) {
       throw new IOException(
           "OzoneManager does not support conditional key rewrite.");
@@ -1609,6 +1662,9 @@ public class RpcClient implements ClientProtocol {
     OmKeyArgs.Builder builder = createStreamKeyArgsBuilder(
         volumeName, bucketName, keyName, size, replicationConfig, metadata,
         tags);
+    if (storagePolicy != null) {
+      builder.setStoragePolicy(storagePolicy);
+    }
     builder.setExpectedETag(expectedETag);
     return openDataStreamOutput(builder.build());
   }

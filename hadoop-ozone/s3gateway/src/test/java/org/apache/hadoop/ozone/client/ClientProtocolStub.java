@@ -267,8 +267,19 @@ public class ClientProtocolStub implements ClientProtocol {
       String bucketName, String keyName, long size,
       ReplicationConfig replicationConfig, Map<String, String> metadata,
       Map<String, String> tags) throws IOException {
+    return createKeyIfNotExists(volumeName, bucketName, keyName, size,
+        replicationConfig, metadata, tags, null);
+  }
+
+  @Override
+  public OzoneOutputStream createKeyIfNotExists(String volumeName,
+      String bucketName, String keyName, long size,
+      ReplicationConfig replicationConfig, Map<String, String> metadata,
+      Map<String, String> tags, StoragePolicy storagePolicy)
+      throws IOException {
     return getBucket(volumeName, bucketName)
-        .createKeyIfNotExists(keyName, size, replicationConfig, metadata, tags);
+        .createKeyIfNotExists(keyName, size, replicationConfig, metadata, tags,
+            storagePolicy);
   }
 
   @Override
@@ -276,9 +287,19 @@ public class ClientProtocolStub implements ClientProtocol {
       String bucketName, String keyName, long size, String expectedETag,
       ReplicationConfig replicationConfig, Map<String, String> metadata,
       Map<String, String> tags) throws IOException {
+    return rewriteKeyIfMatch(volumeName, bucketName, keyName, size,
+        expectedETag, replicationConfig, metadata, tags, null);
+  }
+
+  @Override
+  public OzoneOutputStream rewriteKeyIfMatch(String volumeName,
+      String bucketName, String keyName, long size, String expectedETag,
+      ReplicationConfig replicationConfig, Map<String, String> metadata,
+      Map<String, String> tags, StoragePolicy storagePolicy)
+      throws IOException {
     return getBucket(volumeName, bucketName)
         .rewriteKeyIfMatch(keyName, size, expectedETag, replicationConfig,
-            metadata, tags);
+            metadata, tags, storagePolicy);
   }
 
   @Override
@@ -286,9 +307,19 @@ public class ClientProtocolStub implements ClientProtocol {
       String bucketName, String keyName, long size,
       ReplicationConfig replicationConfig, Map<String, String> metadata,
       Map<String, String> tags) throws IOException {
+    return createStreamKeyIfNotExists(volumeName, bucketName, keyName, size,
+        replicationConfig, metadata, tags, null);
+  }
+
+  @Override
+  public OzoneDataStreamOutput createStreamKeyIfNotExists(String volumeName,
+      String bucketName, String keyName, long size,
+      ReplicationConfig replicationConfig, Map<String, String> metadata,
+      Map<String, String> tags, StoragePolicy storagePolicy)
+      throws IOException {
     return getBucket(volumeName, bucketName)
         .createStreamKeyIfNotExists(keyName, size, replicationConfig,
-            metadata, tags);
+            metadata, tags, storagePolicy);
   }
 
   @Override
@@ -296,9 +327,19 @@ public class ClientProtocolStub implements ClientProtocol {
       String bucketName, String keyName, long size, String expectedETag,
       ReplicationConfig replicationConfig, Map<String, String> metadata,
       Map<String, String> tags) throws IOException {
+    return rewriteStreamKeyIfMatch(volumeName, bucketName, keyName, size,
+        expectedETag, replicationConfig, metadata, tags, null);
+  }
+
+  @Override
+  public OzoneDataStreamOutput rewriteStreamKeyIfMatch(String volumeName,
+      String bucketName, String keyName, long size, String expectedETag,
+      ReplicationConfig replicationConfig, Map<String, String> metadata,
+      Map<String, String> tags, StoragePolicy storagePolicy)
+      throws IOException {
     return getBucket(volumeName, bucketName)
         .rewriteStreamKeyIfMatch(keyName, size, expectedETag,
-            replicationConfig, metadata, tags);
+            replicationConfig, metadata, tags, storagePolicy);
   }
 
   @Override

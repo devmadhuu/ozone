@@ -724,6 +724,12 @@ public final class OzoneConfigKeys {
   public static final String OZONE_DEFAULT_STORAGE_POLICY_DEFAULT =
       OzoneStoragePolicy.WARM.name();
 
+  public static final String OZONE_S3_DEFAULT_STORAGE_POLICY_KEY =
+      "ozone.s3.default.storagepolicy";
+  // For S3, STANDARD_IA maps to OzoneStoragePolicy WARM.
+  public static final String OZONE_S3_DEFAULT_STORAGE_POLICY_DEFAULT =
+      "STANDARD_IA";
+
   /**
    * There is no need to instantiate this class.
    */

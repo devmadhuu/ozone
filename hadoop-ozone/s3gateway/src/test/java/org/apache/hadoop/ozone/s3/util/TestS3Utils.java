@@ -17,10 +17,13 @@
 
 package org.apache.hadoop.ozone.s3.util;
 
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_S3_DEFAULT_STORAGE_POLICY_KEY;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -34,7 +37,10 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
+import org.apache.hadoop.hdds.client.StoragePolicy;
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
+import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.s3.endpoint.S3Owner;
 import org.apache.hadoop.ozone.s3.exception.OS3Exception;
 import org.apache.hadoop.ozone.s3.exception.S3ErrorTable;
@@ -66,7 +72,8 @@ public class TestS3Utils {
       "",
       S3StorageType.STANDARD.name(),
       S3StorageType.REDUCED_REDUNDANCY.name(),
-      S3StorageType.STANDARD_IA.name()
+      S3StorageType.STANDARD_IA.name(),
+      S3StorageType.GLACIER.name()
   );
 
   private static final List<String> S3STORAGECONFIG = Arrays.asList(
@@ -74,6 +81,30 @@ public class TestS3Utils {
       "",
       "rs-6-3-1024k"
   );
+
+  @Test
+  public void testGetS3StoragePolicyPriority() throws OS3Exception {
+    OzoneConfiguration configuration = new OzoneConfiguration();
+    OzoneBucket bucket = mock(OzoneBucket.class);
+    StoragePolicy bucketPolicy = S3StorageClass.STANDARD_IA.getStoragePolicy();
+    when(bucket.getStoragePolicy()).thenReturn(bucketPolicy);
+
+    assertEquals(S3StorageClass.GLACIER.getStoragePolicy(),
+        S3Utils.getS3StoragePolicy(
+            S3StorageClass.GLACIER.getS3StorageClass(),
+            configuration, bucket));
+    assertEquals(bucketPolicy,
+        S3Utils.getS3StoragePolicy(null, configuration, bucket));
+
+    when(bucket.getStoragePolicy()).thenReturn(null);
+    configuration.set(OZONE_S3_DEFAULT_STORAGE_POLICY_KEY,
+        S3StorageClass.STANDARD.getS3StorageClass());
+    assertEquals(S3StorageClass.STANDARD.getStoragePolicy(),
+        S3Utils.getS3StoragePolicy(null, configuration, bucket));
+
+    configuration.set(OZONE_S3_DEFAULT_STORAGE_POLICY_KEY, "");
+    assertNull(S3Utils.getS3StoragePolicy(null, configuration, bucket));
+  }
 
   public static List<Arguments> validS3ReplicationConfigs() {
     List<Arguments> args = new ArrayList<>();
@@ -106,7 +137,8 @@ public class TestS3Utils {
         } else {
           expectedReplConfig = EC32REPLICATIONCONFIG;
         }
-      } else if (S3StorageType.STANDARD.name().equals(s3StorageType)) {
+      } else if (S3StorageType.STANDARD.name().equals(s3StorageType) ||
+          S3StorageType.GLACIER.name().equals(s3StorageType)) {
         expectedReplConfig = RATIS3REPLICATIONCONFIG;
       } else {
         expectedReplConfig = RATIS1REPLICATIONCONFIG;
@@ -128,7 +160,8 @@ public class TestS3Utils {
 
   public static List<Arguments> invalidS3ReplicationConfigs() {
     List<Arguments> args = new ArrayList<>();
-    args.add(Arguments.of("GLACIER", null, RATIS3REPLICATIONCONFIG, RATIS1REPLICATIONCONFIG));
+    args.add(Arguments.of("DEEP_ARCHIVE", null,
+        RATIS3REPLICATIONCONFIG, RATIS1REPLICATIONCONFIG));
     args.add(Arguments.of(S3StorageType.STANDARD_IA.name(), "INVALID",
         RATIS3REPLICATIONCONFIG, RATIS1REPLICATIONCONFIG));
     return args;

@@ -587,8 +587,20 @@ public class OzoneBucket extends WithMetadata {
   public OzoneOutputStream createKeyIfNotExists(String keyName, long size,
       ReplicationConfig replicationConfig, Map<String, String> metadata,
       Map<String, String> tags) throws IOException {
+    return createKeyIfNotExists(keyName, size, replicationConfig, metadata,
+        tags, null);
+  }
+
+  /**
+   * Creates a key with the requested StoragePolicy only if it does not exist.
+   */
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  public OzoneOutputStream createKeyIfNotExists(String keyName, long size,
+      ReplicationConfig replicationConfig, Map<String, String> metadata,
+      Map<String, String> tags, StoragePolicy keyStoragePolicy)
+      throws IOException {
     return proxy.createKeyIfNotExists(volumeName, name, keyName, size,
-        replicationConfig, metadata, tags);
+        replicationConfig, metadata, tags, keyStoragePolicy);
   }
 
   /**
@@ -607,8 +619,20 @@ public class OzoneBucket extends WithMetadata {
       String expectedETag, ReplicationConfig replicationConfig,
       Map<String, String> metadata, Map<String, String> tags)
       throws IOException {
+    return rewriteKeyIfMatch(keyName, size, expectedETag, replicationConfig,
+        metadata, tags, null);
+  }
+
+  /**
+   * Rewrites a key with the requested StoragePolicy only if its ETag matches.
+   */
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  public OzoneOutputStream rewriteKeyIfMatch(String keyName, long size,
+      String expectedETag, ReplicationConfig replicationConfig,
+      Map<String, String> metadata, Map<String, String> tags,
+      StoragePolicy keyStoragePolicy) throws IOException {
     return proxy.rewriteKeyIfMatch(volumeName, name, keyName, size,
-        expectedETag, replicationConfig, metadata, tags);
+        expectedETag, replicationConfig, metadata, tags, keyStoragePolicy);
   }
 
   /**
@@ -717,11 +741,24 @@ public class OzoneBucket extends WithMetadata {
   public OzoneDataStreamOutput createStreamKeyIfNotExists(String key, long size,
       ReplicationConfig replicationConfig, Map<String, String> keyMetadata,
       Map<String, String> tags) throws IOException {
+    return createStreamKeyIfNotExists(key, size, replicationConfig,
+        keyMetadata, tags, null);
+  }
+
+  /**
+   * Creates a stream key with the requested StoragePolicy only if it does not
+   * exist.
+   */
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  public OzoneDataStreamOutput createStreamKeyIfNotExists(String key, long size,
+      ReplicationConfig replicationConfig, Map<String, String> keyMetadata,
+      Map<String, String> tags, StoragePolicy keyStoragePolicy)
+      throws IOException {
     if (replicationConfig == null) {
       replicationConfig = defaultReplication;
     }
     return proxy.createStreamKeyIfNotExists(volumeName, name, key, size,
-        replicationConfig, keyMetadata, tags);
+        replicationConfig, keyMetadata, tags, keyStoragePolicy);
   }
 
   /**
@@ -741,11 +778,24 @@ public class OzoneBucket extends WithMetadata {
       String expectedETag, ReplicationConfig replicationConfig,
       Map<String, String> keyMetadata, Map<String, String> tags)
       throws IOException {
+    return rewriteStreamKeyIfMatch(key, size, expectedETag, replicationConfig,
+        keyMetadata, tags, null);
+  }
+
+  /**
+   * Rewrites a stream key with the requested StoragePolicy only if its ETag
+   * matches.
+   */
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  public OzoneDataStreamOutput rewriteStreamKeyIfMatch(String key, long size,
+      String expectedETag, ReplicationConfig replicationConfig,
+      Map<String, String> keyMetadata, Map<String, String> tags,
+      StoragePolicy keyStoragePolicy) throws IOException {
     if (replicationConfig == null) {
       replicationConfig = defaultReplication;
     }
     return proxy.rewriteStreamKeyIfMatch(volumeName, name, key, size,
-        expectedETag, replicationConfig, keyMetadata, tags);
+        expectedETag, replicationConfig, keyMetadata, tags, keyStoragePolicy);
   }
 
   /**

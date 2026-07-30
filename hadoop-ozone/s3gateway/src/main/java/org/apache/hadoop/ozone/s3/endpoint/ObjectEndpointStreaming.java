@@ -37,6 +37,7 @@ import javax.ws.rs.core.Response;
 import javax.xml.bind.DatatypeConverter;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
+import org.apache.hadoop.hdds.client.StoragePolicy;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.io.KeyMetadataAware;
@@ -74,13 +75,14 @@ final class ObjectEndpointStreaming {
       Map<String, String> tags, MultiDigestInputStream body,
       HttpHeaders headers, boolean isSignedPayload,
       PerformanceStringBuilder perf,
-      S3ConditionalRequest.WriteConditions writeConditions)
+      S3ConditionalRequest.WriteConditions writeConditions,
+      StoragePolicy storagePolicy)
       throws IOException, OS3Exception {
 
     try {
       return putKeyWithStream(bucket, keyPath,
           length, chunkSize, replicationConfig, keyMetadata, tags, body,
-          headers, isSignedPayload, perf, writeConditions);
+          headers, isSignedPayload, perf, writeConditions, storagePolicy);
     } catch (IOException ex) {
       LOG.error("Exception occurred in PutObject", ex);
       if (ex instanceof OMException) {
@@ -116,7 +118,8 @@ final class ObjectEndpointStreaming {
       HttpHeaders headers,
       boolean isSignedPayload,
       PerformanceStringBuilder perf,
-      S3ConditionalRequest.WriteConditions writeConditions)
+      S3ConditionalRequest.WriteConditions writeConditions,
+      StoragePolicy storagePolicy)
       throws IOException, OS3Exception {
     long startNanos = Time.monotonicNowNanos();
     final String amzContentSha256Header = validateSignatureHeader(headers, keyPath, isSignedPayload);
@@ -124,7 +127,7 @@ final class ObjectEndpointStreaming {
     String md5Hash;
     try (OzoneDataStreamOutput streamOutput = openStreamKeyForPut(bucket,
         keyPath, length, replicationConfig, keyMetadata, tags,
-        writeConditions)) {
+        writeConditions, storagePolicy)) {
       long metadataLatencyNs = METRICS.updatePutKeyMetadataStats(startNanos);
       writeLen = writeToStreamOutput(streamOutput, body, bufferSize, length);
       md5Hash = DatatypeConverter.printHexBinary(body.getMessageDigest(OzoneConsts.MD5_HASH).digest())
@@ -163,18 +166,19 @@ final class ObjectEndpointStreaming {
   private static OzoneDataStreamOutput openStreamKeyForPut(OzoneBucket bucket,
       String keyPath, long length, ReplicationConfig replicationConfig,
       Map<String, String> keyMetadata, Map<String, String> tags,
-      S3ConditionalRequest.WriteConditions writeConditions) throws IOException {
+      S3ConditionalRequest.WriteConditions writeConditions,
+      StoragePolicy storagePolicy) throws IOException {
     if (writeConditions.hasIfNoneMatch()) {
       return bucket.createStreamKeyIfNotExists(keyPath, length,
-          replicationConfig, keyMetadata, tags);
+          replicationConfig, keyMetadata, tags, storagePolicy);
     }
     if (writeConditions.hasIfMatch()) {
       return bucket.rewriteStreamKeyIfMatch(keyPath, length,
           writeConditions.getExpectedETag(), replicationConfig, keyMetadata,
-          tags);
+          tags, storagePolicy);
     }
     return bucket.createStreamKey(keyPath, length, replicationConfig,
-        keyMetadata, tags);
+        keyMetadata, tags, storagePolicy);
   }
 
   @SuppressWarnings("checkstyle:ParameterNumber")
@@ -186,11 +190,11 @@ final class ObjectEndpointStreaming {
       ReplicationConfig replicationConfig,
       Map<String, String> keyMetadata,
       DigestInputStream body, PerformanceStringBuilder perf, long startNanos,
-      Map<String, String> tags)
+      Map<String, String> tags, StoragePolicy storagePolicy)
       throws IOException {
     long writeLen;
     try (OzoneDataStreamOutput streamOutput = bucket.createStreamKey(keyPath,
-        length, replicationConfig, keyMetadata, tags)) {
+        length, replicationConfig, keyMetadata, tags, storagePolicy)) {
       long metadataLatencyNs =
           METRICS.updateCopyKeyMetadataStats(startNanos);
       writeLen = writeToStreamOutput(streamOutput, body, bufferSize, length);

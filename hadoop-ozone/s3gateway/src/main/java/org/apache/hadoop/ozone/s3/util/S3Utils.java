@@ -18,7 +18,10 @@
 package org.apache.hadoop.ozone.s3.util;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_S3_DEFAULT_STORAGE_POLICY_DEFAULT;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_S3_DEFAULT_STORAGE_POLICY_KEY;
 import static org.apache.hadoop.ozone.s3.exception.S3ErrorTable.BAD_DIGEST;
+import static org.apache.hadoop.ozone.s3.exception.S3ErrorTable.INVALID_ARGUMENT;
 import static org.apache.hadoop.ozone.s3.exception.S3ErrorTable.INVALID_DIGEST;
 import static org.apache.hadoop.ozone.s3.exception.S3ErrorTable.INVALID_STORAGE_CLASS;
 import static org.apache.hadoop.ozone.s3.exception.S3ErrorTable.newError;
@@ -44,6 +47,9 @@ import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
+import org.apache.hadoop.hdds.client.StoragePolicy;
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.s3.exception.OS3Exception;
 import org.apache.hadoop.ozone.s3.exception.S3ErrorTable;
 
@@ -107,6 +113,42 @@ public final class S3Utils {
       return storageType.getReplicationConfig();
     } catch (IllegalArgumentException ex) {
       throw newError(INVALID_STORAGE_CLASS, s3StorageType, ex);
+    }
+  }
+
+  /**
+   * Resolves the Ozone StoragePolicy to use for an S3 write request.
+   *
+   * <p>An explicitly requested S3 storage class takes precedence over the
+   * bucket's StoragePolicy. If neither is set, the S3 Gateway default is used.
+   *
+   * @param s3StorageClass S3 storage class request header
+   * @param configuration S3 Gateway configuration
+   * @param bucket destination bucket
+   * @return resolved StoragePolicy
+   * @throws OS3Exception if the requested or configured storage class is invalid
+   */
+  public static StoragePolicy getS3StoragePolicy(String s3StorageClass,
+      OzoneConfiguration configuration, OzoneBucket bucket)
+      throws OS3Exception {
+    try {
+      if (StringUtils.isNotEmpty(s3StorageClass)) {
+        return S3StorageClass.fromS3StorageClass(s3StorageClass)
+            .getStoragePolicy();
+      }
+      if (bucket.getStoragePolicy() != null) {
+        return bucket.getStoragePolicy();
+      }
+      String configuredStorageClass = configuration.get(
+          OZONE_S3_DEFAULT_STORAGE_POLICY_KEY,
+          OZONE_S3_DEFAULT_STORAGE_POLICY_DEFAULT);
+      if (StringUtils.isNotEmpty(configuredStorageClass)) {
+        return S3StorageClass.fromS3StorageClass(configuredStorageClass)
+            .getStoragePolicy();
+      }
+      return null;
+    } catch (IllegalArgumentException ex) {
+      throw newError(INVALID_ARGUMENT, s3StorageClass, ex);
     }
   }
 

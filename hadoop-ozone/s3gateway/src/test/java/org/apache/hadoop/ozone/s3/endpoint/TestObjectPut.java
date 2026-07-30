@@ -84,6 +84,7 @@ import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.s3.exception.OS3Exception;
 import org.apache.hadoop.ozone.s3.exception.S3ErrorTable;
+import org.apache.hadoop.ozone.s3.util.S3StorageClass;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -159,6 +160,23 @@ class TestObjectPut {
     assertNotNull(keyDetails.getMetadata());
     assertThat(keyDetails.getMetadata().get(OzoneConsts.ETAG)).isNotEmpty();
     assertThat(keyDetails.getTags()).isEmpty();
+  }
+
+  @ParameterizedTest
+  @MethodSource("argumentsForPutObject")
+  void testPutObjectWithStoragePolicy(int length,
+      ReplicationConfig replication) throws Exception {
+    String content = RandomStringUtils.secure().nextAlphanumeric(length);
+    bucket.setReplicationConfig(replication);
+    when(headers.getHeaderString(STORAGE_CLASS_HEADER))
+        .thenReturn(S3StorageClass.GLACIER.getS3StorageClass());
+
+    assertSucceeds(() -> putObject(content));
+
+    OzoneKeyDetails keyDetails = assertKeyContent(
+        bucket, KEY_NAME, content);
+    assertEquals(S3StorageClass.GLACIER.getStoragePolicy(),
+        keyDetails.getStoragePolicy());
   }
 
   @Test
@@ -363,6 +381,23 @@ class TestObjectPut {
   }
 
   @Test
+  void testCopyObjectWithStoragePolicy() throws Exception {
+    when(headers.getHeaderString(STORAGE_CLASS_HEADER))
+        .thenReturn(S3StorageClass.STANDARD.getS3StorageClass());
+    assertSucceeds(() -> putObject(CONTENT));
+
+    when(headers.getHeaderString(COPY_SOURCE_HEADER)).thenReturn(
+        BUCKET_NAME + "/" + urlEncode(KEY_NAME));
+    when(headers.getHeaderString(STORAGE_CLASS_HEADER))
+        .thenReturn(S3StorageClass.GLACIER.getS3StorageClass());
+
+    assertSucceeds(() -> putObject(DEST_BUCKET_NAME, DEST_KEY));
+
+    assertEquals(S3StorageClass.GLACIER.getStoragePolicy(),
+        destBucket.getKey(DEST_KEY).getStoragePolicy());
+  }
+
+  @Test
   public void testCopyObjectMessageDigestResetDuringException() throws Exception {
     assertSucceeds(() -> putObject(CONTENT));
 
@@ -559,9 +594,14 @@ class TestObjectPut {
   @Test
   void testIfNoneMatchKeyDoesNotExistSuccess() throws Exception {
     when(headers.getHeaderString("If-None-Match")).thenReturn("*");
+    when(headers.getHeaderString(STORAGE_CLASS_HEADER))
+        .thenReturn(S3StorageClass.GLACIER.getS3StorageClass());
 
     assertSucceeds(() -> putObject(CONTENT));
-    assertKeyContent(bucket, KEY_NAME, CONTENT);
+    OzoneKeyDetails keyDetails = assertKeyContent(
+        bucket, KEY_NAME, CONTENT);
+    assertEquals(S3StorageClass.GLACIER.getStoragePolicy(),
+        keyDetails.getStoragePolicy());
   }
 
   @Test
@@ -586,9 +626,14 @@ class TestObjectPut {
 
     // Now try to rewrite with matching ETag
     when(headers.getHeaderString("If-Match")).thenReturn(etag);
+    when(headers.getHeaderString(STORAGE_CLASS_HEADER))
+        .thenReturn(S3StorageClass.GLACIER.getS3StorageClass());
 
     assertSucceeds(() -> putObject("new-content"));
-    assertKeyContent(bucket, KEY_NAME, "new-content");
+    OzoneKeyDetails keyDetails = assertKeyContent(
+        bucket, KEY_NAME, "new-content");
+    assertEquals(S3StorageClass.GLACIER.getStoragePolicy(),
+        keyDetails.getStoragePolicy());
   }
 
   @Test
