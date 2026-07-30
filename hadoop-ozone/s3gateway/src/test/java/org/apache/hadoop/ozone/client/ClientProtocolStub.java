@@ -762,6 +762,15 @@ public class ClientProtocolStub implements ClientProtocol {
   }
 
   @Override
+  public OzoneDataStreamOutput createStreamKey(
+      String volumeName, String bucketName, String keyName, long size,
+      ReplicationConfig replicationConfig, Map<String, String> metadata,
+      Map<String, String> tags, StoragePolicy storagePolicy)
+      throws IOException {
+    return null;
+  }
+
+  @Override
   public OzoneDataStreamOutput createMultipartStreamKey(
       String volumeName, String bucketName, String keyName, long size,
       int partNumber, String uploadID) throws IOException {
@@ -773,6 +782,14 @@ public class ClientProtocolStub implements ClientProtocol {
       String volumeName, String bucketName, String keyName, long size,
       ReplicationConfig replicationConf, boolean overWrite, boolean recursive)
       throws IOException {
+    return null;
+  }
+
+  @Override
+  public OzoneDataStreamOutput createStreamFile(
+      String volumeName, String bucketName, String keyName, long size,
+      ReplicationConfig replicationConf, boolean overWrite, boolean recursive,
+      StoragePolicy storagePolicy) throws IOException {
     return null;
   }
 

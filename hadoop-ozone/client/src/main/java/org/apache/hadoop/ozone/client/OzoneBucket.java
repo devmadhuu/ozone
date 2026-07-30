@@ -627,6 +627,21 @@ public class OzoneBucket extends WithMetadata {
   }
 
   /**
+   * Creates a new key using streaming writes and the default replication.
+   *
+   * @param key Name of the key to be created
+   * @param size Size of the data the key will point to
+   * @param keyStoragePolicy StoragePolicy of the key
+   * @return stream to which the data has to be written
+   * @throws IOException on error
+   */
+  public OzoneDataStreamOutput createStreamKey(String key, long size,
+      StoragePolicy keyStoragePolicy) throws IOException {
+    return createStreamKey(key, size, defaultReplication,
+        Collections.emptyMap(), Collections.emptyMap(), keyStoragePolicy);
+  }
+
+  /**
    * Creates a new key in the bucket.
    *
    * @param key               Name of the key to be created.
@@ -659,11 +674,32 @@ public class OzoneBucket extends WithMetadata {
   public OzoneDataStreamOutput createStreamKey(String key, long size,
       ReplicationConfig replicationConfig, Map<String, String> keyMetadata,
       Map<String, String> tags) throws IOException {
+    return createStreamKey(key, size, replicationConfig, keyMetadata, tags,
+        null);
+  }
+
+  /**
+   * Creates a new key using streaming writes.
+   *
+   * @param key Name of the key to be created
+   * @param size Size of the data the key will point to
+   * @param replicationConfig Replication configuration
+   * @param keyMetadata Custom key metadata
+   * @param tags Tags used for S3 object tags
+   * @param keyStoragePolicy StoragePolicy of the key
+   * @return stream to which the data has to be written
+   * @throws IOException on error
+   */
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  public OzoneDataStreamOutput createStreamKey(String key, long size,
+      ReplicationConfig replicationConfig, Map<String, String> keyMetadata,
+      Map<String, String> tags, StoragePolicy keyStoragePolicy)
+      throws IOException {
     if (replicationConfig == null) {
       replicationConfig = defaultReplication;
     }
     return proxy.createStreamKey(volumeName, name, key, size,
-        replicationConfig, keyMetadata, tags);
+        replicationConfig, keyMetadata, tags, keyStoragePolicy);
   }
 
   /**
@@ -1181,8 +1217,27 @@ public class OzoneBucket extends WithMetadata {
   public OzoneDataStreamOutput createStreamFile(String keyName, long size,
       ReplicationConfig replicationConfig, boolean overWrite,
       boolean recursive) throws IOException {
+    return createStreamFile(keyName, size, replicationConfig, overWrite,
+        recursive, null);
+  }
+
+  /**
+   * Creates a new file using streaming writes.
+   *
+   * @param keyName Key name
+   * @param size Size of the data the key will point to
+   * @param replicationConfig Replication configuration
+   * @param overWrite if true, an existing file will be overwritten
+   * @param recursive if true, missing parent directories will be created
+   * @param fileStoragePolicy StoragePolicy of the file
+   * @return stream to which the data has to be written
+   * @throws IOException on error
+   */
+  public OzoneDataStreamOutput createStreamFile(String keyName, long size,
+      ReplicationConfig replicationConfig, boolean overWrite,
+      boolean recursive, StoragePolicy fileStoragePolicy) throws IOException {
     return proxy.createStreamFile(volumeName, name, keyName, size,
-        replicationConfig, overWrite, recursive);
+        replicationConfig, overWrite, recursive, fileStoragePolicy);
   }
 
   /**

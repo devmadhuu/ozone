@@ -488,6 +488,26 @@ public interface ClientProtocol {
       throws IOException;
 
   /**
+   * Writes a key in an existing bucket using the requested StoragePolicy.
+   *
+   * @param volumeName Name of the Volume
+   * @param bucketName Name of the Bucket
+   * @param keyName Name of the Key
+   * @param size Size of the data
+   * @param replicationConfig Replication config of the key
+   * @param metadata Custom key metadata
+   * @param tags Custom key tags
+   * @param storagePolicy StoragePolicy of the key
+   * @return {@link OzoneDataStreamOutput}
+   * @throws IOException on error
+   */
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  OzoneDataStreamOutput createStreamKey(String volumeName, String bucketName,
+      String keyName, long size, ReplicationConfig replicationConfig,
+      Map<String, String> metadata, Map<String, String> tags,
+      StoragePolicy storagePolicy) throws IOException;
+
+  /**
    * Writes a key in an existing bucket only if it does not already exist
    * (S3 If-None-Match: * semantics).
    *
@@ -1126,6 +1146,27 @@ public interface ClientProtocol {
   OzoneDataStreamOutput createStreamFile(String volumeName, String bucketName,
       String keyName, long size, ReplicationConfig replicationConfig,
       boolean overWrite, boolean recursive) throws IOException;
+
+  /**
+   * Creates an output stream for writing a file using the requested
+   * StoragePolicy.
+   *
+   * @param volumeName Volume name
+   * @param bucketName Bucket name
+   * @param keyName Key name
+   * @param size Size of the data the key will point to
+   * @param replicationConfig Replication configuration
+   * @param overWrite if true, an existing file will be overwritten
+   * @param recursive if true, missing parent directories will be created
+   * @param storagePolicy StoragePolicy of the file
+   * @return stream to which the data has to be written
+   * @throws IOException on error
+   */
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  OzoneDataStreamOutput createStreamFile(String volumeName, String bucketName,
+      String keyName, long size, ReplicationConfig replicationConfig,
+      boolean overWrite, boolean recursive, StoragePolicy storagePolicy)
+      throws IOException;
 
 
   /**

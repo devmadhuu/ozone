@@ -17,6 +17,8 @@
 
 package org.apache.hadoop.ozone.client.io;
 
+import static org.apache.hadoop.ozone.client.io.BlockOutputStreamEntryPool.getStorageType;
+
 import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.time.Clock;
@@ -85,7 +87,8 @@ public class BlockDataStreamOutputEntryPool implements KeyMetadataAware {
         .setReplicationConfig(replicationConfig).setDataSize(info.getDataSize())
         .setIsMultipartKey(isMultipart).setMultipartUploadID(uploadID)
         .setMultipartUploadPartNumber(partNumber)
-        .setSortDatanodesInPipeline(true);
+        .setSortDatanodesInPipeline(true)
+        .setStoragePolicy(info.getStoragePolicy());
     this.openID = openID;
     this.excludeList = createExcludeList();
     this.bufferList = new ArrayList<>();
@@ -125,7 +128,8 @@ public class BlockDataStreamOutputEntryPool implements KeyMetadataAware {
             .setConfig(config)
             .setLength(subKeyInfo.getLength())
             .setToken(subKeyInfo.getToken())
-            .setBufferList(bufferList);
+            .setBufferList(bufferList)
+            .setStorageType(getStorageType(subKeyInfo));
     streamEntries.add(builder.build());
   }
 

@@ -175,7 +175,7 @@ public class BlockOutputStreamEntryPool implements KeyMetadataAware {
             .build();
   }
 
-  StorageType getStorageType(OmKeyLocationInfo keyInfo) {
+  public static StorageType getStorageType(OmKeyLocationInfo keyInfo) {
     StorageType storageType = null;
     if (keyInfo.getStorageTier() != null) {
       storageType = StorageTierUtil.getStorageTypeForUniformStorageTier(

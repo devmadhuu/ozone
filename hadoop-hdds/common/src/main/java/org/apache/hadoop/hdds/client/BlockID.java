@@ -105,6 +105,11 @@ public class BlockID {
     return storageType;
   }
 
+  public BlockID withStorageType(StorageType newStorageType) {
+    return new BlockID(containerBlockID, blockCommitSequenceId, replicaIndex,
+        newStorageType);
+  }
+
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder(64);

@@ -500,6 +500,7 @@ public class HddsDispatcher implements ContainerDispatcher, Auditor {
     createRequest.setContainerType(containerType);
 
     if (containerRequest.hasWriteChunk()) {
+      // StreamInit uses WriteChunk to carry the block and storage type.
       DatanodeBlockID blockID = containerRequest.getWriteChunk().getBlockID();
       createRequest.setReplicaIndex(blockID.getReplicaIndex());
       if (blockID.hasStorageTypeID() && blockID.getStorageTypeID() > 0) {

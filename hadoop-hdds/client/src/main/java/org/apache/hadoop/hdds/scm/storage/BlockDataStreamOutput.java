@@ -34,6 +34,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
@@ -145,6 +146,7 @@ public class BlockDataStreamOutput implements ByteBufferStreamOutput {
    * @param blockID              block ID
    * @param xceiverClientManager client manager that controls client
    * @param pipeline             pipeline where block will be written
+   * @param storageType          storage type required for the block
    */
   public BlockDataStreamOutput(
       BlockID blockID,
@@ -152,17 +154,20 @@ public class BlockDataStreamOutput implements ByteBufferStreamOutput {
       Pipeline pipeline,
       OzoneClientConfig config,
       Token<? extends TokenIdentifier> token,
-      List<StreamBuffer> bufferList
-  ) throws IOException {
+      List<StreamBuffer> bufferList,
+      StorageType storageType) throws IOException {
     this.xceiverClientFactory = xceiverClientManager;
     this.config = config;
     this.isDatastreamPipelineMode = config.isDatastreamPipelineMode();
     this.syncSize = config.getDataStreamSyncSize();
-    this.blockID = new AtomicReference<>(blockID);
+    BlockID streamBlockID = storageType == null ?
+        blockID : blockID.withStorageType(storageType);
+    this.blockID = new AtomicReference<>(streamBlockID);
     KeyValue keyValue =
         KeyValue.newBuilder().setKey("TYPE").setValue("KEY").build();
     this.containerBlockData =
-        BlockData.newBuilder().setBlockID(blockID.getDatanodeBlockIDProtobuf())
+        BlockData.newBuilder()
+            .setBlockID(streamBlockID.getDatanodeBlockIDProtobuf())
             .addMetadata(keyValue);
     this.xceiverClient =
         (XceiverClientRatis)xceiverClientManager.acquireClient(pipeline, true);

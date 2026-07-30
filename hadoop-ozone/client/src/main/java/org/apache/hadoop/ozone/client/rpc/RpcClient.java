@@ -1559,9 +1559,23 @@ public class RpcClient implements ClientProtocol {
       String volumeName, String bucketName, String keyName, long size,
       ReplicationConfig replicationConfig,
       Map<String, String> metadata, Map<String, String> tags) throws IOException {
+    return createStreamKey(volumeName, bucketName, keyName, size,
+        replicationConfig, metadata, tags, null);
+  }
+
+  @Override
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  public OzoneDataStreamOutput createStreamKey(
+      String volumeName, String bucketName, String keyName, long size,
+      ReplicationConfig replicationConfig, Map<String, String> metadata,
+      Map<String, String> tags, StoragePolicy storagePolicy)
+      throws IOException {
     OmKeyArgs.Builder builder = createStreamKeyArgsBuilder(
         volumeName, bucketName, keyName, size, replicationConfig, metadata,
         tags);
+    if (storagePolicy != null) {
+      builder.setStoragePolicy(storagePolicy);
+    }
     return openDataStreamOutput(builder.build());
   }
 
@@ -2441,6 +2455,17 @@ public class RpcClient implements ClientProtocol {
       String bucketName, String keyName, long size,
       ReplicationConfig replicationConfig, boolean overWrite, boolean recursive)
       throws IOException {
+    return createStreamFile(volumeName, bucketName, keyName, size,
+        replicationConfig, overWrite, recursive, null);
+  }
+
+  @Override
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  public OzoneDataStreamOutput createStreamFile(String volumeName,
+      String bucketName, String keyName, long size,
+      ReplicationConfig replicationConfig, boolean overWrite,
+      boolean recursive, StoragePolicy storagePolicy)
+      throws IOException {
     String ownerName = getRealUserInfo().getShortUserName();
     OmKeyArgs keyArgs = new OmKeyArgs.Builder()
         .setVolumeName(volumeName)
@@ -2451,6 +2476,7 @@ public class RpcClient implements ClientProtocol {
         .setLatestVersionLocation(getLatestVersionLocation)
         .setSortDatanodesInPipeline(true)
         .setOwnerName(ownerName)
+        .setStoragePolicy(storagePolicy)
         .build();
     OpenKeySession keySession =
         ozoneManagerClient.createFile(keyArgs, overWrite, recursive);

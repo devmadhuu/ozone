@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -51,6 +52,7 @@ import org.apache.hadoop.hdds.client.StorageTypeUtils;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.conf.StorageUnit;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
+import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.scm.XceiverClientGrpc;
 import org.apache.hadoop.hdds.scm.container.ContainerID;
 import org.apache.hadoop.hdds.scm.container.ContainerInfo;
@@ -65,12 +67,14 @@ import org.apache.hadoop.hdds.utils.IOUtils;
 import org.apache.hadoop.ozone.ClientConfigForTesting;
 import org.apache.hadoop.ozone.HddsDatanodeService;
 import org.apache.hadoop.ozone.MiniOzoneCluster;
+import org.apache.hadoop.ozone.OzoneConfigKeys;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.client.BucketArgs;
 import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneClientFactory;
+import org.apache.hadoop.ozone.client.io.OzoneDataStreamOutput;
 import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
 import org.apache.hadoop.ozone.container.common.impl.ContainerData;
 import org.apache.hadoop.ozone.container.common.interfaces.Container;
@@ -105,6 +109,10 @@ public class TestOzoneStoragePolicy {
    */
   static void startCluster(OzoneConfiguration conf,
       List<List<StorageType>> storageTypeList, int datanodeCount, int dataVolumesCount) throws Exception {
+    conf.setBoolean(OzoneConfigKeys.HDDS_CONTAINER_RATIS_DATASTREAM_ENABLED,
+        true);
+    conf.setBoolean(
+        OzoneConfigKeys.HDDS_CONTAINER_RATIS_DATASTREAM_RANDOM_PORT, true);
     cluster = MiniOzoneCluster.newBuilder(conf)
         .setNumDatanodes(datanodeCount)
         .setNumDataVolumes(dataVolumesCount)
@@ -163,6 +171,9 @@ public class TestOzoneStoragePolicy {
   public void testStoragePolicy(
       String type, String replication, BucketLayout bucketLayout) throws Exception {
     ReplicationConfig replicationConfig = getReplicationConfig(type, replication);
+    final int blockSizeMb = 4;
+    ClientConfigForTesting.newBuilder(StorageUnit.MB)
+        .setBlockSize(blockSizeMb).applyTo(conf);
 
     // Create a Cluster with 3 DNs, echo DN has three different type StorageType Volumes
     List<List<StorageType>> storageTypeList = new ArrayList<>();
@@ -181,6 +192,26 @@ public class TestOzoneStoragePolicy {
       assertKeyInfo(keyInfo, 1, expectedPolicy, replicationConfig);
       assertSCMPipelineAndContainer(keyInfo, expectedPolicy.getCreationTier(), replicationConfig);
       assertDNContainerAndBlock(keyInfo, expectedPolicy.getCreationTier(), replicationConfig);
+
+      if (replicationConfig.getReplicationType() !=
+          HddsProtos.ReplicationType.EC) {
+        keyInfo = createRandomNameStreamingKeyAndGet(replicationConfig,
+            storagePolicy, false, bucketLayout,
+            new byte[blockSizeMb * 1024 * 1024]);
+        assertKeyInfo(keyInfo, 2, expectedPolicy, replicationConfig);
+        assertSCMPipelineAndContainer(keyInfo,
+            expectedPolicy.getCreationTier(), replicationConfig);
+        assertDNContainerAndBlock(keyInfo,
+            expectedPolicy.getCreationTier(), replicationConfig);
+
+        keyInfo = createRandomNameStreamingFileAndGet(replicationConfig,
+            storagePolicy, false, bucketLayout);
+        assertKeyInfo(keyInfo, 1, expectedPolicy, replicationConfig);
+        assertSCMPipelineAndContainer(keyInfo,
+            expectedPolicy.getCreationTier(), replicationConfig);
+        assertDNContainerAndBlock(keyInfo,
+            expectedPolicy.getCreationTier(), replicationConfig);
+      }
 
       keyInfo = createRandomNameFileAndGet(replicationConfig, storagePolicy, false, bucketLayout);
       assertKeyInfo(keyInfo, 1, expectedPolicy, replicationConfig);
@@ -338,13 +369,24 @@ public class TestOzoneStoragePolicy {
 
     OzoneBucket bucket =
         createBucketWithStoragePolicyAndGet(OzoneStoragePolicy.HOT, replicationConfig, bucketLayout);
-    OmKeyInfo keyInfo = createMultipartKeyAndGet(bucket, replicationConfig, null);
-    assertKeyInfo(keyInfo, 2, OzoneStoragePolicy.HOT, replicationConfig);
-    assertDNContainerAndBlock(keyInfo, OzoneStoragePolicy.HOT.getCreationTier(), replicationConfig);
+    for (boolean streamingWrite : Arrays.asList(false, true)) {
+      if (replicationConfig.getReplicationType() ==
+          HddsProtos.ReplicationType.EC &&
+          streamingWrite) {
+        continue;
+      }
+      OmKeyInfo keyInfo = createMultipartKeyAndGet(
+          bucket, replicationConfig, null, streamingWrite);
+      assertKeyInfo(keyInfo, 2, OzoneStoragePolicy.HOT, replicationConfig);
+      assertDNContainerAndBlock(keyInfo,
+          OzoneStoragePolicy.HOT.getCreationTier(), replicationConfig);
 
-    keyInfo = createMultipartKeyAndGet(bucket, replicationConfig, OzoneStoragePolicy.COLD);
-    assertKeyInfo(keyInfo, 2, OzoneStoragePolicy.COLD, replicationConfig);
-    assertDNContainerAndBlock(keyInfo, OzoneStoragePolicy.COLD.getCreationTier(), replicationConfig);
+      keyInfo = createMultipartKeyAndGet(
+          bucket, replicationConfig, OzoneStoragePolicy.COLD, streamingWrite);
+      assertKeyInfo(keyInfo, 2, OzoneStoragePolicy.COLD, replicationConfig);
+      assertDNContainerAndBlock(keyInfo,
+          OzoneStoragePolicy.COLD.getCreationTier(), replicationConfig);
+    }
   }
 
   private void closeAllPipelines(ReplicationConfig replicationConfig) throws Exception {
@@ -468,19 +510,42 @@ public class TestOzoneStoragePolicy {
   private OmKeyInfo createRandomNameKeyAndGet(ReplicationConfig replicationConfig,
       StoragePolicy storagePolicy, boolean allowFallback, BucketLayout bucketLayout) throws IOException {
     return createRandomKeyOrFile(storagePolicy, allowFallback, bucketLayout,
+        null,
         (bucket, keyName, length, policy) -> bucket.createKey(keyName, length,
             replicationConfig, new HashMap<>(), new HashMap<>(), policy));
+  }
+
+  private OmKeyInfo createRandomNameStreamingKeyAndGet(
+      ReplicationConfig replicationConfig, StoragePolicy storagePolicy,
+      boolean allowFallback, BucketLayout bucketLayout, byte[] extraData)
+      throws IOException {
+    return createRandomKeyOrFile(storagePolicy, allowFallback, bucketLayout,
+        extraData,
+        (bucket, keyName, length, policy) -> bucket.createStreamKey(keyName,
+            length, replicationConfig, new HashMap<>(), new HashMap<>(),
+            policy));
   }
 
   private OmKeyInfo createRandomNameFileAndGet(ReplicationConfig replicationConfig,
       StoragePolicy storagePolicy, boolean allowFallback, BucketLayout bucketLayout) throws IOException {
     return createRandomKeyOrFile(storagePolicy, allowFallback, bucketLayout,
+        null,
         (bucket, keyName, length, policy) -> bucket.createFile(keyName, length,
             replicationConfig, false, false, policy));
   }
 
+  private OmKeyInfo createRandomNameStreamingFileAndGet(
+      ReplicationConfig replicationConfig, StoragePolicy storagePolicy,
+      boolean allowFallback, BucketLayout bucketLayout) throws IOException {
+    return createRandomKeyOrFile(storagePolicy, allowFallback, bucketLayout,
+        null,
+        (bucket, keyName, length, policy) -> bucket.createStreamFile(keyName,
+            length, replicationConfig, false, false, policy));
+  }
+
   private OmKeyInfo createRandomKeyOrFile(StoragePolicy storagePolicy,
-      boolean allowFallback, BucketLayout bucketLayout, KeyCreator keyCreator) throws IOException {
+      boolean allowFallback, BucketLayout bucketLayout, byte[] extraData,
+      KeyCreator keyCreator) throws IOException {
     String volumeName = UUID.randomUUID().toString();
     String bucketName = UUID.randomUUID().toString();
     String keyName = UUID.randomUUID().toString();
@@ -493,9 +558,12 @@ public class TestOzoneStoragePolicy {
     store.getVolume(volumeName).createBucket(bucketName, bucketArgs);
     OzoneBucket bucket = store.getVolume(volumeName).getBucket(bucketName);
 
-    OzoneOutputStream out = keyCreator.create(bucket, keyName,
+    OutputStream out = keyCreator.create(bucket, keyName,
         keyValue.getBytes(UTF_8).length, storagePolicy);
     out.write(keyValue.getBytes(UTF_8));
+    if (extraData != null) {
+      out.write(extraData);
+    }
     out.close();
 
     OmKeyArgs keyArgs = new OmKeyArgs.Builder()
@@ -506,13 +574,15 @@ public class TestOzoneStoragePolicy {
     return ozoneManager.lookupKey(keyArgs);
   }
 
+  @FunctionalInterface
   private interface KeyCreator {
-    OzoneOutputStream create(OzoneBucket bucket, String keyName, int length,
+    OutputStream create(OzoneBucket bucket, String keyName, int length,
         StoragePolicy storagePolicy) throws IOException;
   }
 
   private OmKeyInfo createMultipartKeyAndGet(OzoneBucket bucket,
-      ReplicationConfig replicationConfig, StoragePolicy storagePolicy) throws IOException {
+      ReplicationConfig replicationConfig, StoragePolicy storagePolicy,
+      boolean streamingWrite) throws IOException {
     String keyName = UUID.randomUUID().toString();
     OmMultipartInfo multipartInfo = bucket.initiateMultipartUpload(
         keyName, replicationConfig, Collections.emptyMap(), Collections.emptyMap(), storagePolicy);
@@ -520,12 +590,21 @@ public class TestOzoneStoragePolicy {
     byte[] data = new byte[OzoneConsts.OM_MULTIPART_MIN_SIZE];
     Arrays.fill(data, (byte) 1);
     for (int partNumber = 1; partNumber <= 2; partNumber++) {
-      OzoneOutputStream out = bucket.createMultipartKey(
-          keyName, data.length, partNumber, multipartInfo.getUploadID());
-      out.write(data);
-      out.getMetadata().put(OzoneConsts.ETAG, DigestUtils.md5Hex(data));
-      out.close();
-      parts.put(partNumber, out.getCommitUploadPartInfo().getETag());
+      if (streamingWrite) {
+        OzoneDataStreamOutput out = bucket.createMultipartStreamKey(
+            keyName, data.length, partNumber, multipartInfo.getUploadID());
+        out.write(data);
+        out.getMetadata().put(OzoneConsts.ETAG, DigestUtils.md5Hex(data));
+        out.close();
+        parts.put(partNumber, out.getCommitUploadPartInfo().getETag());
+      } else {
+        OzoneOutputStream out = bucket.createMultipartKey(
+            keyName, data.length, partNumber, multipartInfo.getUploadID());
+        out.write(data);
+        out.getMetadata().put(OzoneConsts.ETAG, DigestUtils.md5Hex(data));
+        out.close();
+        parts.put(partNumber, out.getCommitUploadPartInfo().getETag());
+      }
     }
     bucket.completeMultipartUpload(keyName, multipartInfo.getUploadID(), parts);
 

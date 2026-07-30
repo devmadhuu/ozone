@@ -44,6 +44,7 @@ import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationFactor;
 import org.apache.hadoop.hdds.client.ReplicationType;
+import org.apache.hadoop.hdds.client.StoragePolicy;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.scm.storage.ByteBufferStreamOutput;
 import org.apache.hadoop.ozone.OzoneAcl;
@@ -235,6 +236,16 @@ public final class OzoneBucketStub extends OzoneBucket {
                                                Map<String, String> keyMetadata,
                                                Map<String, String> tags)
       throws IOException {
+    return createStreamKey(key, size, rConfig, keyMetadata, tags, null);
+  }
+
+  @Override
+  public OzoneDataStreamOutput createStreamKey(String key, long size,
+                                               ReplicationConfig rConfig,
+                                               Map<String, String> keyMetadata,
+                                               Map<String, String> tags,
+                                               StoragePolicy storagePolicy)
+      throws IOException {
     assertDoesNotExist(key + "/");
 
     ByteBufferStreamOutput byteBufferStreamOutput =
@@ -264,7 +275,7 @@ public final class OzoneBucketStub extends OzoneBucket {
                 new ArrayList<>(), rConfig, objectMetadata, null,
                 null, false,
                 UserGroupInformation.getCurrentUser().getShortUserName(),
-                tags, null
+                tags, storagePolicy
             ));
           }
 
