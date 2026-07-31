@@ -18,6 +18,8 @@
 package org.apache.hadoop.ozone.container.common.statemachine.commandhandler;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
@@ -128,5 +130,11 @@ public class TestReplicateContainerCommandHandler {
         ReplicateContainerCommand.getFromProtobuf(command.getProto());
 
     assertEquals(StorageType.SSD, restored.getTargetVolumeStorageType());
+
+    ReplicateContainerCommand untyped =
+        ReplicateContainerCommand.forTest(2);
+    assertFalse(untyped.getProto().hasVolumeStorageType());
+    assertNull(ReplicateContainerCommand.getFromProtobuf(untyped.getProto())
+        .getTargetVolumeStorageType());
   }
 }

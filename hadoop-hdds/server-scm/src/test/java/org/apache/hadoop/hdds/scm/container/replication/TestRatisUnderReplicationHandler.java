@@ -52,6 +52,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
+import org.apache.hadoop.hdds.client.StorageTier;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.MockDatanodeDetails;
@@ -68,6 +69,7 @@ import org.apache.hadoop.hdds.scm.node.NodeStatus;
 import org.apache.hadoop.hdds.scm.node.states.NodeNotFoundException;
 import org.apache.hadoop.hdds.scm.pipeline.InsufficientDatanodesException;
 import org.apache.hadoop.ozone.container.common.SCMTestUtils;
+import org.apache.hadoop.ozone.protocol.commands.ReplicateContainerCommand;
 import org.apache.hadoop.ozone.protocol.commands.SCMCommand;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.junit.jupiter.api.BeforeEach;
@@ -187,6 +189,22 @@ public class TestRatisUnderReplicationHandler {
 
     testProcessing(replicas, Collections.emptyList(),
         getUnderReplicatedHealthResult(), 2, 1);
+  }
+
+  @Test
+  public void testReplicationCommandUsesContainerStorageTier()
+      throws IOException {
+    container.setStorageTier(StorageTier.SSD);
+    Set<ContainerReplica> replicas =
+        createReplicas(container.containerID(), State.CLOSED, 0, 0);
+
+    Set<Pair<DatanodeDetails, SCMCommand<?>>> commands =
+        testProcessing(replicas, Collections.emptyList(),
+            getUnderReplicatedHealthResult(), 2, 1);
+
+    ReplicateContainerCommand command =
+        (ReplicateContainerCommand) commands.iterator().next().getRight();
+    assertEquals(StorageType.SSD, command.getTargetVolumeStorageType());
   }
 
   /**
@@ -463,7 +481,8 @@ public class TestRatisUnderReplicationHandler {
 
     // Ensure that the replica with SEQ=2 is the only source sent
     verify(replicationManager).sendThrottledReplicationCommand(any(ContainerInfo.class),
-        eq(Collections.singletonList(valid.getDatanodeDetails())), any(DatanodeDetails.class), anyInt());
+        eq(Collections.singletonList(valid.getDatanodeDetails())),
+        any(DatanodeDetails.class), anyInt(), any(StorageType.class));
   }
 
   @Test

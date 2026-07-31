@@ -91,6 +91,12 @@ public class ContainerImporter {
   public void importContainer(long containerID, Path tarFilePath,
       HddsVolume targetVolume, CopyContainerCompression compression)
       throws IOException {
+    importContainer(containerID, tarFilePath, targetVolume, compression, null);
+  }
+
+  public void importContainer(long containerID, Path tarFilePath,
+      HddsVolume targetVolume, CopyContainerCompression compression,
+      StorageType storageType) throws IOException {
     if (!importContainerProgress.add(containerID)) {
       deleteFileQuietely(tarFilePath);
       String log = "Container import in progress with container Id " + containerID;
@@ -117,6 +123,9 @@ public class ContainerImporter {
       }
       ContainerUtils.verifyContainerFileChecksum(containerData, conf);
       containerData.setVolume(targetVolume);
+      if (storageType != null) {
+        containerData.setStorageType(storageType);
+      }
       // lastDataScanTime should be cleared for an imported container
       containerData.setDataScanTimestamp(null);
 
@@ -136,12 +145,6 @@ public class ContainerImporter {
       importContainerProgress.remove(containerID);
       deleteFileQuietely(tarFilePath);
     }
-  }
-
-  public void importContainer(long containerID, Path tarFilePath,
-      HddsVolume targetVolume, CopyContainerCompression compression,
-      StorageType storageType) throws IOException {
-    importContainer(containerID, tarFilePath, targetVolume, compression);
   }
 
   private static void deleteFileQuietely(Path tarFilePath) {

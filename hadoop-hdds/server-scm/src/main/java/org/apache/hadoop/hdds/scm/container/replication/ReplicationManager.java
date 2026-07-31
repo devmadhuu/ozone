@@ -513,9 +513,11 @@ public class ReplicationManager implements SCMService, ContainerReplicaPendingOp
    * @param sources The list of datanodes that can be used as sources
    * @param target The target datanode where the container should be replicated
    * @param replicaIndex The index of the container replica to be replicated
+   * @param targetStorageType The target container replica StorageType
    */
   public void sendThrottledReplicationCommand(ContainerInfo containerInfo,
-      List<DatanodeDetails> sources, DatanodeDetails target, int replicaIndex)
+      List<DatanodeDetails> sources, DatanodeDetails target, int replicaIndex,
+      StorageType targetStorageType)
       throws CommandTargetOverloadedException, NotLeaderException {
     long containerID = containerInfo.getContainerID();
     List<Pair<Integer, DatanodeDetails>> sourceWithCmds =
@@ -530,7 +532,8 @@ public class ReplicationManager implements SCMService, ContainerReplicaPendingOp
         1, sourceWithCmds);
 
     ReplicateContainerCommand cmd =
-        ReplicateContainerCommand.toTarget(containerID, target);
+        ReplicateContainerCommand.toTarget(
+            containerID, target, targetStorageType);
     cmd.setReplicaIndex(replicaIndex);
     sendDatanodeCommand(cmd, containerInfo, source);
   }

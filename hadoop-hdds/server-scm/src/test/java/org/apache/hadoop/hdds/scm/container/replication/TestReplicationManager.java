@@ -65,6 +65,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
@@ -1369,7 +1370,8 @@ public class TestReplicationManager {
         repConfig, 1, HddsProtos.LifeCycleState.CLOSED, 10, 20);
 
     replicationManager.sendThrottledReplicationCommand(
-        container, new ArrayList<>(sourceNodes), destination, replicaIndex);
+        container, new ArrayList<>(sourceNodes), destination, replicaIndex,
+        StorageType.SSD);
 
     assertEquals(1, commandsSent.size());
     Pair<DatanodeID, SCMCommand<?>> cmdWithTarget = commandsSent.iterator().next();
@@ -1380,6 +1382,7 @@ public class TestReplicationManager {
         (ReplicateContainerCommand) cmdWithTarget.getRight();
     assertEquals(destination, cmd.getTargetDatanode());
     assertEquals(replicaIndex, cmd.getReplicaIndex());
+    assertEquals(StorageType.SSD, cmd.getTargetVolumeStorageType());
   }
 
   @Test
@@ -1409,7 +1412,7 @@ public class TestReplicationManager {
         .getReplicateContainerCmdsDeferredTotal();
     assertThrows(CommandTargetOverloadedException.class,
         () -> replicationManager.sendThrottledReplicationCommand(
-            container, sourceNodes, destination, 0));
+            container, sourceNodes, destination, 0, StorageType.DEFAULT));
     assertEquals(overLoadedCount + 1, replicationManager.getMetrics()
         .getReplicateContainerCmdsDeferredTotal());
   }
@@ -1545,7 +1548,7 @@ public class TestReplicationManager {
 
     replicationManager.sendThrottledReplicationCommand(container,
         new ArrayList<>(commandCounts.keySet()),
-        MockDatanodeDetails.randomDatanodeDetails(), 1);
+        MockDatanodeDetails.randomDatanodeDetails(), 1, StorageType.DEFAULT);
 
     Set<DatanodeDetails> excluded = replicationManager.getExcludedNodes();
     assertEquals(1, excluded.size());

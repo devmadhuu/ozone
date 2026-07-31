@@ -50,6 +50,7 @@ import org.apache.commons.compress.archivers.ArchiveOutputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.io.IOUtils;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
 import org.apache.hadoop.hdds.scm.ScmConfigKeys;
@@ -234,6 +235,17 @@ class TestContainerImporter {
         targetVolume, NO_COMPRESSION);
 
     assertEquals(Optional.empty(), containerData.lastDataScanTime());
+  }
+
+  @Test
+  public void testImportContainerUsesTargetStorageType() throws Exception {
+    HddsVolume targetVolume = mock(HddsVolume.class);
+    File tarFile = containerTarFile(containerId, containerData);
+
+    containerImporter.importContainer(containerId, tarFile.toPath(),
+        targetVolume, NO_COMPRESSION, StorageType.SSD);
+
+    assertEquals(StorageType.SSD, containerData.getStorageType());
   }
 
   @Test

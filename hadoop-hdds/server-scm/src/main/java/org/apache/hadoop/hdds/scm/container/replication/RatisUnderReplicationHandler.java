@@ -27,6 +27,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.conf.StorageUnit;
@@ -132,10 +133,10 @@ public class RatisUnderReplicationHandler
       return 0;
     }
 
-    List<DatanodeDetails> targetDatanodes;
+    Pair<StorageType, List<DatanodeDetails>> targets;
     try {
       // find targets to send replicas to
-      targetDatanodes = getTargets(replicaCount, pendingOps);
+      targets = getTargets(replicaCount, pendingOps);
     } catch (SCMException e) {
       SCMException.ResultCodes code = e.getResult();
       if (code != SCMException.ResultCodes.FAILED_TO_FIND_SUITABLE_NODE) {
@@ -147,9 +148,11 @@ public class RatisUnderReplicationHandler
       // Throw the original exception so the request gets re-queued to try again
       throw e;
     }
+    StorageType targetStorageType = targets.getLeft();
+    List<DatanodeDetails> targetDatanodes = targets.getRight();
 
     int commandsSent = sendReplicationCommands(
-        containerInfo, sourceDatanodes, targetDatanodes);
+        containerInfo, sourceDatanodes, targetDatanodes, targetStorageType);
 
     if (targetDatanodes.size() < replicaCount.additionalReplicaNeeded()) {
       // The placement policy failed to find enough targets to satisfy fix
@@ -176,7 +179,7 @@ public class RatisUnderReplicationHandler
    * @return number of replicate commands sent
    */
   private int handleVulnerableUnhealthyReplicas(RatisContainerReplicaCount replicaCount,
-      List<ContainerReplicaOp> pendingOps) throws NotLeaderException, CommandTargetOverloadedException, SCMException {
+      List<ContainerReplicaOp> pendingOps) throws IOException {
     ContainerInfo container = replicaCount.getContainer();
     List<ContainerReplica> vulnerableUnhealthy = replicaCount.getVulnerableUnhealthyReplicas(dn -> {
       try {
@@ -219,7 +222,7 @@ public class RatisUnderReplicationHandler
    * @param sources List containing replicas, each will be replicated
    */
   private int replicateEachSource(RatisContainerReplicaCount replicaCount, List<ContainerReplica> sources,
-      List<ContainerReplicaOp> pendingOps) throws NotLeaderException, SCMException, CommandTargetOverloadedException {
+      List<ContainerReplicaOp> pendingOps) throws IOException {
     List<ContainerReplica> allReplicas = replicaCount.getReplicas();
     ContainerInfo container = replicaCount.getContainer();
 
@@ -239,13 +242,18 @@ public class RatisUnderReplicationHandler
     int numCommandsSent = 0;
     for (ContainerReplica replica : sources) {
       // find a target for each source and send replicate command
-      // TODO StoragePolicy replace this StorageType with container actual StorageType
-      final List<DatanodeDetails> target =
-          ReplicationManagerUtil.getTargetDatanodes(placementPolicy, 1, excludedAndUsedNodes.getUsedNodes(),
-              excludedAndUsedNodes.getExcludedNodes(), currentContainerSize, container, StorageType.DEFAULT);
+      Pair<StorageType, List<DatanodeDetails>> targets =
+          ReplicationManagerUtil.getTargetDatanodesWithFallback(
+              placementPolicy, 1, excludedAndUsedNodes.getUsedNodes(),
+              excludedAndUsedNodes.getExcludedNodes(), currentContainerSize,
+              container, container.getStorageTier());
+      StorageType targetStorageType = targets.getLeft();
+      List<DatanodeDetails> target = targets.getRight();
       int count = 0;
       try {
-        count = sendReplicationCommands(container, ImmutableList.of(replica.getDatanodeDetails()), target);
+        count = sendReplicationCommands(container,
+            ImmutableList.of(replica.getDatanodeDetails()), target,
+            targetStorageType);
       } catch (CommandTargetOverloadedException e) {
         LOG.info("Exception while replicating {} to target {} for container {}.", replica, target, container, e);
         if (firstException == null) {
@@ -445,7 +453,7 @@ public class RatisUnderReplicationHandler
         .collect(Collectors.toList());
   }
 
-  private List<DatanodeDetails> getTargets(
+  private Pair<StorageType, List<DatanodeDetails>> getTargets(
       RatisContainerReplicaCount replicaCount,
       List<ContainerReplicaOp> pendingOps) throws IOException {
     LOG.debug("Need {} target datanodes for container {}. Current " +
@@ -462,15 +470,17 @@ public class RatisUnderReplicationHandler
 
     LOG.debug("UsedList: {}, size {}. ExcludeList: {}, size: {}. ",
         used, used.size(), excluded, excluded.size());
-    // TODO StoragePolicy replace this StorageType with container actual StorageType
-    return ReplicationManagerUtil.getTargetDatanodes(placementPolicy,
+    return ReplicationManagerUtil.getTargetDatanodesWithFallback(
+        placementPolicy,
         replicaCount.additionalReplicaNeeded(), used, excluded,
-        currentContainerSize, replicaCount.getContainer(), StorageType.DEFAULT);
+        currentContainerSize, replicaCount.getContainer(),
+        replicaCount.getContainer().getStorageTier());
   }
 
   private int sendReplicationCommands(
       ContainerInfo containerInfo, List<DatanodeDetails> sources,
-      List<DatanodeDetails> targets) throws CommandTargetOverloadedException,
+      List<DatanodeDetails> targets, StorageType targetStorageType)
+      throws CommandTargetOverloadedException,
       NotLeaderException {
     final boolean push = replicationManager.getConfig().isPush();
     int commandsSent = 0;
@@ -478,14 +488,14 @@ public class RatisUnderReplicationHandler
     if (push) {
       for (DatanodeDetails target : targets) {
         replicationManager.sendThrottledReplicationCommand(
-            containerInfo, sources, target, 0);
+            containerInfo, sources, target, 0, targetStorageType);
         commandsSent++;
       }
     } else {
       for (DatanodeDetails target : targets) {
         ReplicateContainerCommand command =
             ReplicateContainerCommand.fromSources(
-                containerInfo.getContainerID(), sources);
+                containerInfo.getContainerID(), sources, targetStorageType);
         replicationManager.sendDatanodeCommand(command, containerInfo, target);
         commandsSent++;
       }

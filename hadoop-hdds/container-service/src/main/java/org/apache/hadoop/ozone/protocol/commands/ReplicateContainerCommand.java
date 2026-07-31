@@ -19,6 +19,7 @@ package org.apache.hadoop.ozone.protocol.commands;
 
 import static java.util.Collections.emptyList;
 
+import jakarta.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -44,27 +45,42 @@ public final class ReplicateContainerCommand
   private int replicaIndex = 0;
   private ReplicationCommandPriority priority =
       ReplicationCommandPriority.NORMAL;
-  private StorageType targetVolumeStorageType = StorageType.DISK;
+  private @Nullable StorageType targetVolumeStorageType;
 
   public static ReplicateContainerCommand fromSources(long containerID,
       List<DatanodeDetails> sourceDatanodes) {
-    return new ReplicateContainerCommand(containerID, sourceDatanodes, null);
+    return fromSources(containerID, sourceDatanodes, null);
+  }
+
+  public static ReplicateContainerCommand fromSources(long containerID,
+      List<DatanodeDetails> sourceDatanodes,
+      @Nullable StorageType targetStorageType) {
+    return new ReplicateContainerCommand(containerID, sourceDatanodes, null,
+        targetStorageType);
   }
 
   public static ReplicateContainerCommand toTarget(long containerID,
       DatanodeDetails target) {
-    return new ReplicateContainerCommand(containerID, emptyList(), target);
+    return toTarget(containerID, target, null);
+  }
+
+  public static ReplicateContainerCommand toTarget(long containerID,
+      DatanodeDetails target, @Nullable StorageType targetStorageType) {
+    return new ReplicateContainerCommand(containerID, emptyList(), target,
+        targetStorageType);
   }
 
   public static ReplicateContainerCommand forTest(long containerID) {
-    return new ReplicateContainerCommand(containerID, emptyList(), null);
+    return new ReplicateContainerCommand(containerID, emptyList(), null, null);
   }
 
   private ReplicateContainerCommand(long containerID,
-      List<DatanodeDetails> sourceDatanodes, DatanodeDetails target) {
+      List<DatanodeDetails> sourceDatanodes, DatanodeDetails target,
+      @Nullable StorageType targetStorageType) {
     this.containerID = containerID;
     this.sourceDatanodes = sourceDatanodes;
     this.targetDatanode = target;
+    this.targetVolumeStorageType = targetStorageType;
   }
 
   // Should be called only for protobuf conversion
@@ -114,8 +130,10 @@ public final class ReplicateContainerCommand
       builder.setTarget(targetDatanode.getProtoBufMessage());
     }
     builder.setPriority(priority);
-    builder.setVolumeStorageType(
-        StorageTypeUtils.getStorageTypeProto(targetVolumeStorageType));
+    if (targetVolumeStorageType != null) {
+      builder.setVolumeStorageType(
+          StorageTypeUtils.getStorageTypeProto(targetVolumeStorageType));
+    }
     return builder.build();
   }
 
@@ -169,7 +187,7 @@ public final class ReplicateContainerCommand
     return priority;
   }
 
-  public StorageType getTargetVolumeStorageType() {
+  public @Nullable StorageType getTargetVolumeStorageType() {
     return targetVolumeStorageType;
   }
 

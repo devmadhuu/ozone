@@ -70,8 +70,8 @@ class TestPushReplicator {
     SpyOutputStream output = new SpyOutputStream(NULL_OUTPUT_STREAM);
     ContainerReplicator subject = createSubject(containerID, target,
         output, completion, compression, StorageType.SSD);
-    ReplicateContainerCommand command = toTarget(containerID, target);
-    command.setTargetVolumeStorageType(StorageType.SSD);
+    ReplicateContainerCommand command =
+        toTarget(containerID, target, StorageType.SSD);
     ReplicationTask task = new ReplicationTask(command, subject);
 
     // WHEN
@@ -79,6 +79,7 @@ class TestPushReplicator {
 
     // THEN
     assertEquals(Status.DONE, task.getStatus());
+    assertEquals(StorageType.SSD, task.getTargetVolumeStorageType());
     output.assertClosedExactlyOnce();
   }
 
@@ -92,8 +93,8 @@ class TestPushReplicator {
         fut -> fut.completeExceptionally(new Exception("testing"));
     ContainerReplicator subject = createSubject(containerID, target,
         output, completion, NO_COMPRESSION, StorageType.SSD);
-    ReplicateContainerCommand command = toTarget(containerID, target);
-    command.setTargetVolumeStorageType(StorageType.SSD);
+    ReplicateContainerCommand command =
+        toTarget(containerID, target, StorageType.SSD);
     ReplicationTask task = new ReplicationTask(command, subject);
 
     // WHEN
@@ -115,8 +116,8 @@ class TestPushReplicator {
     };
     ContainerReplicator subject = createSubject(containerID, target,
         output, completion, NO_COMPRESSION, StorageType.SSD);
-    ReplicateContainerCommand command = toTarget(containerID, target);
-    command.setTargetVolumeStorageType(StorageType.SSD);
+    ReplicateContainerCommand command =
+        toTarget(containerID, target, StorageType.SSD);
     ReplicationTask task = new ReplicationTask(command, subject);
 
     // WHEN

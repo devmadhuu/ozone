@@ -460,12 +460,14 @@ public final class ReplicationTestUtil {
       ContainerInfo containerInfo = invocationOnMock.getArgument(0);
       ReplicateContainerCommand command = ReplicateContainerCommand
           .toTarget(containerInfo.getContainerID(),
-              invocationOnMock.getArgument(2));
+              invocationOnMock.getArgument(2),
+              invocationOnMock.getArgument(4));
       command.setReplicaIndex(invocationOnMock.getArgument(3));
       commandsSent.add(Pair.of(sources.get(0), command));
       return null;
     }).when(mock).sendThrottledReplicationCommand(
-        any(ContainerInfo.class), anyList(), any(DatanodeDetails.class), anyInt());
+        any(ContainerInfo.class), anyList(), any(DatanodeDetails.class),
+        anyInt(), any(StorageType.class));
   }
 
   /**

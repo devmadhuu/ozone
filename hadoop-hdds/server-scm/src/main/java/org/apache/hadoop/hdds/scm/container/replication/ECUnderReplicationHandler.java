@@ -444,9 +444,13 @@ public class ECUnderReplicationHandler implements UnhealthyReplicationHandler {
     if (!decomIndexes.isEmpty()) {
       LOG.debug("Processing decommissioning indexes {} for container {}.",
           decomIndexes, container.containerID());
-      // TODO StoragePolicy replace this StorageType with container actual StorageType
-      final List<DatanodeDetails> selectedDatanodes = getTargetDatanodes(
-          container, decomIndexes.size(), usedNodes, excludedNodes, StorageType.DEFAULT);
+      Pair<StorageType, List<DatanodeDetails>> targets =
+          ReplicationManagerUtil.getTargetDatanodesWithFallback(
+              containerPlacement, decomIndexes.size(), usedNodes,
+              excludedNodes, currentContainerSize, container,
+              container.getStorageTier());
+      StorageType targetStorageType = targets.getLeft();
+      List<DatanodeDetails> selectedDatanodes = targets.getRight();
 
       ContainerPlacementStatus placementStatusWithSelectedTargets =
           validatePlacement(container, availableSourceNodes, selectedDatanodes);
@@ -483,7 +487,8 @@ public class ECUnderReplicationHandler implements UnhealthyReplicationHandler {
         }
         try {
           createReplicateCommand(
-              container, iterator, sourceReplica, replicaCount);
+              container, iterator, sourceReplica, replicaCount,
+              targetStorageType);
           commandsSent++;
         } catch (CommandTargetOverloadedException e) {
           LOG.debug("Unable to send Replicate command for container {}" +
@@ -542,9 +547,12 @@ public class ECUnderReplicationHandler implements UnhealthyReplicationHandler {
     LOG.debug("Number of maintenance replicas of container {} that need " +
             "additional copies: {}.", container.containerID(),
         additionalMaintenanceCopiesNeeded);
-    // TODO StoragePolicy replace this StorageType with container actual StorageType
-    List<DatanodeDetails> targets = getTargetDatanodes(
-        container, maintIndexes.size(), usedNodes, excludedNodes, StorageType.DEFAULT);
+    Pair<StorageType, List<DatanodeDetails>> selectedTargets =
+        ReplicationManagerUtil.getTargetDatanodesWithFallback(
+            containerPlacement, maintIndexes.size(), usedNodes, excludedNodes,
+            currentContainerSize, container, container.getStorageTier());
+    StorageType targetStorageType = selectedTargets.getLeft();
+    List<DatanodeDetails> targets = selectedTargets.getRight();
     usedNodes.addAll(targets);
 
     Iterator<DatanodeDetails> iterator = targets.iterator();
@@ -575,7 +583,8 @@ public class ECUnderReplicationHandler implements UnhealthyReplicationHandler {
       }
       try {
         createReplicateCommand(
-            container, iterator, sourceReplica, replicaCount);
+            container, iterator, sourceReplica, replicaCount,
+            targetStorageType);
         commandsSent++;
         additionalMaintenanceCopiesNeeded -= 1;
       } catch (CommandTargetOverloadedException e) {
@@ -605,7 +614,8 @@ public class ECUnderReplicationHandler implements UnhealthyReplicationHandler {
 
   private void createReplicateCommand(
       ContainerInfo container, Iterator<DatanodeDetails> iterator,
-      ContainerReplica replica, ECContainerReplicaCount replicaCount)
+      ContainerReplica replica, ECContainerReplicaCount replicaCount,
+      StorageType targetStorageType)
       throws CommandTargetOverloadedException, NotLeaderException {
     final boolean push = replicationManager.getConfig().isPush();
     DatanodeDetails source = replica.getDatanodeDetails();
@@ -615,15 +625,14 @@ public class ECUnderReplicationHandler implements UnhealthyReplicationHandler {
     if (push) {
       replicationManager.sendThrottledReplicationCommand(
           container, Collections.singletonList(source), target,
-          replica.getReplicaIndex());
+          replica.getReplicaIndex(), targetStorageType);
     } else {
       ReplicateContainerCommand replicateCommand =
           ReplicateContainerCommand.fromSources(containerID,
-          ImmutableList.of(source));
+              ImmutableList.of(source), targetStorageType);
       // For EC containers, we need to track the replica index which is
       // to be replicated, so add it to the command.
       replicateCommand.setReplicaIndex(replica.getReplicaIndex());
-      replicateCommand.setTargetVolumeStorageType(replica.getStorageType());
       replicationManager.sendDatanodeCommand(replicateCommand, container,
           target);
     }
