@@ -97,7 +97,7 @@ public class CheckStoragePolicySubCommand extends ScmSubcommand {
     //   lands this always returns null.
     StoragePolicy storagePolicy = keyInfo.getStoragePolicy();
     int requiredNodes = keyInfo.getReplicationConfig().getRequiredNodes();
-    sb.append(String.format("Storage Policy for key '%s/%s/%s':\n",
+    sb.append(String.format("Storage Policy for key '%s/%s/%s':%n",
         keyAddress.getVolumeName(), keyAddress.getBucketName(),
         keyAddress.getKeyName()));
 
@@ -116,7 +116,7 @@ public class CheckStoragePolicySubCommand extends ScmSubcommand {
         sb.append(String.format(
             " Fallback Tier: [%s x %d]}", fallbackStorageType, requiredNodes));
       }
-      sb.append(String.format("  Key Match Storage Policy: %s\n",
+      sb.append(String.format("  Key Match Storage Policy: %s%n",
           keyMatchStoragePolicy ? "YES" : "NO"));
     }
     return sb.toString();
@@ -131,24 +131,24 @@ public class CheckStoragePolicySubCommand extends ScmSubcommand {
 
     for (OzoneKeyLocation keyLocation : keyLocations) {
       long containerId = keyLocation.getContainerID();
-      sb.append(String.format("Container ID: %d\n", containerId));
+      sb.append(String.format("Container ID: %d%n", containerId));
 
       try {
         List<ContainerReplicaInfo> replicas =
             scmClient.getContainerReplicas(containerId);
         for (ContainerReplicaInfo replica : replicas) {
           DatanodeDetails datanode = replica.getDatanodeDetails();
-          sb.append(String.format("  Datanode: %s (%s, %s)\n",
-              datanode.getUuid(), datanode.getHostName(),
-              datanode.getNetworkLocation()));
-          sb.append(String.format("  Replica state: %s\n",
-              replica.getState()));
+          sb.append("  Datanode: ").append(datanode.getUuid())
+              .append(" (").append(datanode.getHostName())
+              .append(", ").append(datanode.getNetworkLocation()).append(')')
+              .append(System.lineSeparator())
+              .append("  Replica state: ").append(replica.getState()).append(System.lineSeparator())
+              .append(System.lineSeparator());
           // TODO(patch-27): replica.getStorageType(), getVolumeStorageType(),
           //   and getContainerPath() are added by the
           //   "Container info command support display StorageType" patch.
           //   Once that patch lands, add StorageType-matching logic here and
           //   update keyMatchStoragePolicy accordingly.
-          sb.append("\n");
         }
       } catch (IOException e) {
         throw new RuntimeException(String.format(
@@ -160,7 +160,7 @@ public class CheckStoragePolicySubCommand extends ScmSubcommand {
           ? (keyMatchStoragePolicy ? "YES" : "NO")
           : "Key unset StoragePolicy";
       sb.append(String.format(
-          "  Container Match Storage Policy: %s\n", matchStatus));
+          "  Container Match Storage Policy: %s%n", matchStatus));
     }
     return sb.toString();
   }

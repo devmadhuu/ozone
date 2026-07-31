@@ -203,8 +203,8 @@ public class InfoSubcommand extends ScmSubcommand {
     }
     if (withStorageType) {
       sb.append(" ContainerStorageType: ").append(replica.getStorageType())
-          .append(';');
-      sb.append(" ContainerVolumeStorageType: ")
+          .append(';')
+          .append(" ContainerVolumeStorageType: ")
           .append(replica.getVolumeStorageType()).append(';');
     }
     return sb.toString();

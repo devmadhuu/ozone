@@ -206,8 +206,8 @@ public final class ReplicateContainerCommand
     } else {
       sb.append(", sourceNodes=").append(sourceDatanodes);
     }
-    sb.append(", priority=").append(priority);
-    sb.append(", targetVolumeStorageType=").append(targetVolumeStorageType);
+    sb.append(", priority=").append(priority)
+        .append(", targetVolumeStorageType=").append(targetVolumeStorageType);
     return sb.toString();
   }
 }
