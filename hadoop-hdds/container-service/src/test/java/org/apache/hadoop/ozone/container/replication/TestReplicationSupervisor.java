@@ -1026,7 +1026,7 @@ public class TestReplicationSupervisor {
     @Override
     public void reconstructECContainerGroup(long containerID,
         ECReplicationConfig repConfig, SortedMap<Integer, DatanodeDetails> sourceNodeMap,
-        SortedMap<Integer, DatanodeDetails> targetNodeMap) {
+        SortedMap<Integer, ?> targetNodeMap) {
       assertEquals(1, supervisor.getTotalInFlightReplications());
 
       KeyValueContainerData kvcd = new KeyValueContainerData(

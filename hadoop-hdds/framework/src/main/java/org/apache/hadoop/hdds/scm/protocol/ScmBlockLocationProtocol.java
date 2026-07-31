@@ -17,11 +17,11 @@
 
 package org.apache.hadoop.hdds.scm.protocol;
 
+import jakarta.annotation.Nonnull;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
-import jakarta.annotation.Nonnull;
 import org.apache.hadoop.hdds.client.OzoneStoragePolicy;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.client.StoragePolicy;
@@ -119,6 +119,7 @@ public interface ScmBlockLocationProtocol extends Closeable {
    * @return allocated block accessing info (key, pipeline).
    * @throws IOException
    */
+  @SuppressWarnings("checkstyle:ParameterNumber")
   List<AllocatedBlock> allocateBlock(long size, int numBlocks,
       ReplicationConfig replicationConfig, String owner,
       ExcludeList excludeList, String clientMachine,
