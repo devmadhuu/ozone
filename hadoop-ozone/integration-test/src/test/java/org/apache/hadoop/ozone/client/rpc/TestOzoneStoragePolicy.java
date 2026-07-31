@@ -31,9 +31,12 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -85,7 +88,9 @@ import org.apache.hadoop.ozone.om.helpers.OmKeyArgs;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
 import org.apache.hadoop.ozone.om.helpers.OmMultipartInfo;
+import org.apache.ozone.test.GenericTestUtils;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -387,6 +392,38 @@ public class TestOzoneStoragePolicy {
       assertDNContainerAndBlock(keyInfo,
           OzoneStoragePolicy.COLD.getCreationTier(), replicationConfig);
     }
+  }
+
+  @Test
+  public void testAutoCreatePipelineForAllStorageTiers() throws Exception {
+    List<List<StorageType>> storageTypeList = new ArrayList<>();
+    for (int i = 0; i < 3; i++) {
+      storageTypeList.add(Collections.singletonList(StorageType.SSD));
+      storageTypeList.add(Collections.singletonList(StorageType.DISK));
+      storageTypeList.add(Collections.singletonList(StorageType.ARCHIVE));
+    }
+    startCluster(conf, storageTypeList, 9, 1);
+
+    ReplicationConfig ratisThree = ReplicationConfig.fromTypeAndFactor(
+        ReplicationType.RATIS, ReplicationFactor.THREE);
+    ReplicationConfig ratisOne = ReplicationConfig.fromTypeAndFactor(
+        ReplicationType.RATIS, ReplicationFactor.ONE);
+    Set<StorageTier> expectedStorageTiers =
+        EnumSet.of(StorageTier.SSD, StorageTier.DISK, StorageTier.ARCHIVE);
+
+    GenericTestUtils.waitFor(() -> {
+      Set<StorageTier> ratisThreeTiers = new HashSet<>();
+      Set<StorageTier> ratisOneTiers = new HashSet<>();
+      for (Pipeline pipeline : pipelineManager.getPipelines()) {
+        if (ratisThree.equals(pipeline.getReplicationConfig())) {
+          ratisThreeTiers.add(pipeline.getSupportedStorageTier());
+        } else if (ratisOne.equals(pipeline.getReplicationConfig())) {
+          ratisOneTiers.add(pipeline.getSupportedStorageTier());
+        }
+      }
+      return ratisThreeTiers.equals(expectedStorageTiers) &&
+          ratisOneTiers.equals(expectedStorageTiers);
+    }, 1000, 90000);
   }
 
   private void closeAllPipelines(ReplicationConfig replicationConfig) throws Exception {
