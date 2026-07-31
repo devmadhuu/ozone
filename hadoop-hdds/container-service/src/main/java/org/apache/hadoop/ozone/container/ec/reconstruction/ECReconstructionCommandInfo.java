@@ -30,13 +30,14 @@ import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.ozone.protocol.commands.ReconstructECContainersCommand;
 import org.apache.hadoop.ozone.protocol.commands.ReconstructECContainersCommand.DatanodeDetailsAndReplicaIndex;
+import org.apache.hadoop.ozone.protocol.commands.ReconstructECContainersCommand.ECReconstructionTarget;
 
 /**
  * This class is to keep the required EC reconstruction info.
  */
 public class ECReconstructionCommandInfo {
   private final SortedMap<Integer, DatanodeDetails> sourceNodeMap;
-  private final SortedMap<Integer, DatanodeDetails> targetNodeMap;
+  private final SortedMap<Integer, ECReconstructionTarget> targetNodeMap;
   private final long containerID;
   private final ECReplicationConfig ecReplicationConfig;
   private final ByteString missingContainerIndexes;
@@ -55,11 +56,11 @@ public class ECReconstructionCommandInfo {
             DatanodeDetailsAndReplicaIndex::getReplicaIndex,
             DatanodeDetailsAndReplicaIndex::getDnDetails,
             (v1, v2) -> v1, TreeMap::new));
-    targetNodeMap = IntStream.range(0, cmd.getTargetDatanodes().size())
+    targetNodeMap = IntStream.range(0, cmd.getReconstructionTargets().size())
         .boxed()
         .collect(toMap(
             i -> (int) missingContainerIndexes.byteAt(i),
-            i -> cmd.getTargetDatanodes().get(i),
+            i -> cmd.getReconstructionTargets().get(i),
             (v1, v2) -> v1, TreeMap::new));
   }
 
@@ -79,7 +80,7 @@ public class ECReconstructionCommandInfo {
     return unmodifiableSortedMap(sourceNodeMap);
   }
 
-  SortedMap<Integer, DatanodeDetails> getTargetNodeMap() {
+  SortedMap<Integer, ECReconstructionTarget> getTargetNodeMap() {
     return unmodifiableSortedMap(targetNodeMap);
   }
 

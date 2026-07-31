@@ -203,11 +203,11 @@ public class TestECUnderReplicationHandler {
         () -> subject.processAndSendCommands(replicas, emptyList(), result, 2));
 
     // THEN
-    assertEquals(2, spy.callCount());
-    assertExcluded(excluded, spy.excludedNodes(0));
-    assertUsedNodes(replicas, spy.usedNodes(0));
-    assertExcluded(emptySet(), spy.excludedNodes(1));
+    assertEquals(3, spy.callCount());
+    assertExcluded(excluded, spy.excludedNodes(1));
     assertUsedNodes(replicas, spy.usedNodes(1));
+    assertExcluded(emptySet(), spy.excludedNodes(2));
+    assertUsedNodes(replicas, spy.usedNodes(2));
     assertEquals(parity - remainingRedundancy, e.getRequiredNodes());
     assertEquals(e.getRequiredNodes() - excluded.size(), e.getAvailableNodes());
     verify(replicationManager, never())
@@ -264,7 +264,7 @@ public class TestECUnderReplicationHandler {
         () -> subject.processAndSendCommands(replicas, emptyList(), result, 2));
 
     // THEN
-    assertEquals(1, spy.callCount());
+    assertEquals(2, spy.callCount());
     assertEquals(singletonList(excludedByRM), spy.excludedNodes(0));
     assertUsedNodes(replicas, spy.usedNodes(0));
     assertEquals(parity - remainingRedundancy, e.getRequiredNodes());

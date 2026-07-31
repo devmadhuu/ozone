@@ -18,12 +18,16 @@
 package org.apache.hadoop.ozone.protocol.commands;
 
 import com.google.protobuf.ByteString;
+import jakarta.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.HddsIdFactory;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
+import org.apache.hadoop.hdds.client.StorageTypeUtils;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ReconstructECContainersCommandProto;
@@ -37,13 +41,13 @@ public class ReconstructECContainersCommand
     extends SCMCommand<ReconstructECContainersCommandProto> {
   private final long containerID;
   private final List<DatanodeDetailsAndReplicaIndex> sources;
-  private final List<DatanodeDetails> targetDatanodes;
+  private final List<ECReconstructionTarget> reconstructionTargets;
   private final ByteString missingContainerIndexes;
   private final ECReplicationConfig ecReplicationConfig;
 
   public ReconstructECContainersCommand(long containerID,
       List<DatanodeDetailsAndReplicaIndex> sources,
-      List<DatanodeDetails> targetDatanodes, ByteString missingContainerIndexes,
+      List<?> targetDatanodes, ByteString missingContainerIndexes,
       ECReplicationConfig ecReplicationConfig) {
     this(containerID, sources, targetDatanodes, missingContainerIndexes,
         ecReplicationConfig, HddsIdFactory.getLongId());
@@ -51,15 +55,15 @@ public class ReconstructECContainersCommand
 
   public ReconstructECContainersCommand(long containerID,
       List<DatanodeDetailsAndReplicaIndex> sourceDatanodes,
-      List<DatanodeDetails> targetDatanodes, ByteString missingContainerIndexes,
+      List<?> targetDatanodes, ByteString missingContainerIndexes,
       ECReplicationConfig ecReplicationConfig, long id) {
     super(id);
     this.containerID = containerID;
     this.sources = sourceDatanodes;
-    this.targetDatanodes = targetDatanodes;
+    this.reconstructionTargets = toReconstructionTargets(targetDatanodes);
     this.missingContainerIndexes = missingContainerIndexes;
     this.ecReplicationConfig = ecReplicationConfig;
-    if (targetDatanodes.size() != missingContainerIndexes.size()) {
+    if (reconstructionTargets.size() != missingContainerIndexes.size()) {
       throw new IllegalArgumentException("Number of target datanodes and " +
           "container indexes should be same");
     }
@@ -78,8 +82,9 @@ public class ReconstructECContainersCommand
     for (DatanodeDetailsAndReplicaIndex dd : sources) {
       builder.addSources(dd.toProto());
     }
-    for (DatanodeDetails dd : targetDatanodes) {
-      builder.addTargets(dd.getProtoBufMessage());
+    for (ECReconstructionTarget target : reconstructionTargets) {
+      builder.addTargets(target.getDatanodeDetails().getProtoBufMessage());
+      builder.addReconstructionTargets(target.toProto());
     }
     builder.setMissingContainerIndexes(missingContainerIndexes);
     builder.setEcReplicationConfig(ecReplicationConfig.toProto());
@@ -94,9 +99,17 @@ public class ReconstructECContainersCommand
         protoMessage.getSourcesList().stream()
             .map(a -> DatanodeDetailsAndReplicaIndex.fromProto(a))
             .collect(Collectors.toList());
-    List<DatanodeDetails> targetDatanodeDetails =
-        protoMessage.getTargetsList().stream()
-            .map(DatanodeDetails::getFromProtoBuf).collect(Collectors.toList());
+    List<ECReconstructionTarget> targetDatanodeDetails;
+    if (protoMessage.getReconstructionTargetsCount() > 0) {
+      targetDatanodeDetails = protoMessage.getReconstructionTargetsList()
+          .stream().map(ECReconstructionTarget::fromProto)
+          .collect(Collectors.toList());
+    } else {
+      targetDatanodeDetails = protoMessage.getTargetsList().stream()
+          .map(DatanodeDetails::getFromProtoBuf)
+          .map(dn -> new ECReconstructionTarget(dn, null))
+          .collect(Collectors.toList());
+    }
 
     return new ReconstructECContainersCommand(protoMessage.getContainerID(),
         srcDatanodeDetails, targetDatanodeDetails,
@@ -114,7 +127,13 @@ public class ReconstructECContainersCommand
   }
 
   public List<DatanodeDetails> getTargetDatanodes() {
-    return targetDatanodes;
+    return reconstructionTargets.stream()
+        .map(ECReconstructionTarget::getDatanodeDetails)
+        .collect(Collectors.toList());
+  }
+
+  public List<ECReconstructionTarget> getReconstructionTargets() {
+    return reconstructionTargets;
   }
 
   public ByteString getMissingContainerIndexes() {
@@ -123,6 +142,22 @@ public class ReconstructECContainersCommand
 
   public ECReplicationConfig getEcReplicationConfig() {
     return ecReplicationConfig;
+  }
+
+  private static List<ECReconstructionTarget> toReconstructionTargets(
+      List<?> targets) {
+    List<ECReconstructionTarget> result = new ArrayList<>(targets.size());
+    for (Object target : targets) {
+      if (target instanceof ECReconstructionTarget) {
+        result.add((ECReconstructionTarget) target);
+      } else if (target instanceof DatanodeDetails) {
+        result.add(new ECReconstructionTarget((DatanodeDetails) target, null));
+      } else {
+        throw new IllegalArgumentException("Unsupported reconstruction target: "
+            + target);
+      }
+    }
+    return result;
   }
 
   @Override
@@ -139,7 +174,7 @@ public class ReconstructECContainersCommand
             .map(a -> a.dnDetails
                 + " replicaIndex: " + a.getReplicaIndex())
             .collect(Collectors.joining(", "))).append(']')
-        .append(", targets: ").append(getTargetDatanodes())
+        .append(", targets: ").append(getReconstructionTargets())
         .append(", missingIndexes: ").append(
             Arrays.toString(missingContainerIndexes.toByteArray()));
     return sb.toString();
@@ -198,6 +233,74 @@ public class ReconstructECContainersCommand
     @Override
     public int hashCode() {
       return Objects.hash(dnDetails, replicaIndex);
+    }
+  }
+
+  /**
+   * Target datanode and storage type for an EC reconstruction.
+   */
+  public static class ECReconstructionTarget {
+    private final DatanodeDetails datanodeDetails;
+    private final StorageType storageType;
+
+    public ECReconstructionTarget(DatanodeDetails datanodeDetails,
+        @Nullable StorageType storageType) {
+      this.datanodeDetails = Objects.requireNonNull(datanodeDetails);
+      this.storageType = storageType;
+    }
+
+    public DatanodeDetails getDatanodeDetails() {
+      return datanodeDetails;
+    }
+
+    @Nullable
+    public StorageType getStorageType() {
+      return storageType;
+    }
+
+    public StorageContainerDatanodeProtocolProtos.ECReconstructionTargetProto
+        toProto() {
+      StorageContainerDatanodeProtocolProtos.ECReconstructionTargetProto.Builder
+          builder = StorageContainerDatanodeProtocolProtos
+          .ECReconstructionTargetProto.newBuilder()
+          .setDatanodeDetails(datanodeDetails.getProtoBufMessage());
+      if (storageType != null) {
+        builder.setStorageType(
+            StorageTypeUtils.getStorageTypeProto(storageType));
+      }
+      return builder.build();
+    }
+
+    public static ECReconstructionTarget fromProto(
+        StorageContainerDatanodeProtocolProtos.ECReconstructionTargetProto
+            proto) {
+      StorageType type = proto.hasStorageType()
+          ? StorageTypeUtils.getFromProtobuf(proto.getStorageType()) : null;
+      return new ECReconstructionTarget(
+          DatanodeDetails.getFromProtoBuf(proto.getDatanodeDetails()), type);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      ECReconstructionTarget that = (ECReconstructionTarget) o;
+      return datanodeDetails.equals(that.datanodeDetails)
+          && storageType == that.storageType;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(datanodeDetails, storageType);
+    }
+
+    @Override
+    public String toString() {
+      return datanodeDetails + " storageType: " + storageType;
     }
   }
 }

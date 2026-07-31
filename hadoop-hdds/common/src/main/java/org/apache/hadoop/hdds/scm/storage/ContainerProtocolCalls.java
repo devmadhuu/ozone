@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.annotation.InterfaceStability;
 import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.hdds.client.StorageTypeUtils;
@@ -551,8 +552,20 @@ public final class ContainerProtocolCalls  {
   public static void createRecoveringContainer(XceiverClientSpi client,
       long containerID, String encodedToken, int replicaIndex)
       throws IOException {
+    createRecoveringContainer(client, containerID, encodedToken, replicaIndex,
+        null);
+  }
+
+  /**
+   * Creates a recovering container on the requested storage type.
+   */
+  @InterfaceStability.Evolving
+  public static void createRecoveringContainer(XceiverClientSpi client,
+      long containerID, String encodedToken, int replicaIndex,
+      StorageType storageType) throws IOException {
     createContainer(client, containerID, encodedToken,
-        ContainerProtos.ContainerDataProto.State.RECOVERING, replicaIndex);
+        ContainerProtos.ContainerDataProto.State.RECOVERING, replicaIndex,
+        storageType);
   }
 
   /**
@@ -578,9 +591,20 @@ public final class ContainerProtocolCalls  {
       long containerID, String encodedToken,
       ContainerProtos.ContainerDataProto.State state, int replicaIndex)
       throws IOException {
+    createContainer(client, containerID, encodedToken, state, replicaIndex,
+        null);
+  }
+
+  /**
+   * createContainer call that creates a container on the requested storage
+   * type.
+   */
+  public static void createContainer(XceiverClientSpi client,
+      long containerID, String encodedToken,
+      ContainerProtos.ContainerDataProto.State state, int replicaIndex,
+      StorageType storageType) throws IOException {
     ContainerProtos.CreateContainerRequestProto.Builder createRequest =
         ContainerProtos.CreateContainerRequestProto.newBuilder();
-    // TODO StoragePolicy Support createContainer Command
     createRequest
         .setContainerType(ContainerProtos.ContainerType.KeyValueContainer);
     if (state != null) {
@@ -588,6 +612,9 @@ public final class ContainerProtocolCalls  {
     }
     if (replicaIndex > 0) {
       createRequest.setReplicaIndex(replicaIndex);
+    }
+    if (storageType != null) {
+      createRequest.setStorageTypeID(StorageTypeUtils.getID(storageType));
     }
 
     String id = client.getPipeline().getFirstNode().getUuidString();

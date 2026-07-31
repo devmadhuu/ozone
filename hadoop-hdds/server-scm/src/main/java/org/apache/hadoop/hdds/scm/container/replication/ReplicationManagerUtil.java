@@ -28,7 +28,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.fs.StorageType;
+import org.apache.hadoop.hdds.client.StorageTier;
+import org.apache.hadoop.hdds.client.StorageTierUtil;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.DatanodeID;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
@@ -117,6 +120,55 @@ public final class ReplicationManagerUtil {
             + " any nodes. Number of required Nodes %d, Data size Required: %d. Container: %s, Used Nodes %s, " +
             "Excluded Nodes: %s.", policy.getClass(), requiredNodes, dataSizeRequired, container,
         formatDatanodeDetails(usedNodes), formatDatanodeDetails(excludedNodes)),
+        SCMException.ResultCodes.FAILED_TO_FIND_SUITABLE_NODE);
+  }
+
+  /**
+   * Selects reconstruction targets using the requested tier and its ordered
+   * fallback storage types.
+   */
+  public static Pair<StorageType, List<DatanodeDetails>>
+      getTargetDatanodesWithFallback(PlacementPolicy policy,
+      int requiredNodes, List<DatanodeDetails> usedNodes,
+      List<DatanodeDetails> excludedNodes, long defaultContainerSize,
+      ContainerInfo container, StorageTier storageTier) throws IOException {
+    StorageTier requestedTier =
+        storageTier == null ? StorageTier.DISK : storageTier;
+    List<DatanodeDetails> firstPartialResult = null;
+    StorageType firstPartialType = null;
+    List<StorageType> storageTypes =
+        StorageTierUtil.getAvailableStorageTypeOrdered(requestedTier);
+
+    for (int i = 0; i < storageTypes.size(); i++) {
+      StorageType storageType = storageTypes.get(i);
+      try {
+        List<DatanodeDetails> datanodes = getTargetDatanodes(policy,
+            requiredNodes, usedNodes, excludedNodes, defaultContainerSize,
+            container, storageType);
+        if (datanodes.size() == requiredNodes
+            || i == storageTypes.size() - 1) {
+          return Pair.of(storageType, datanodes);
+        }
+        if (firstPartialResult == null) {
+          firstPartialResult = datanodes;
+          firstPartialType = storageType;
+        }
+      } catch (SCMException e) {
+        if (i == storageTypes.size() - 1
+            || !StorageTierUtil.shouldFallBack(requestedTier, e)) {
+          if (firstPartialResult != null) {
+            return Pair.of(firstPartialType, firstPartialResult);
+          }
+          throw e;
+        }
+      }
+    }
+
+    if (firstPartialResult != null) {
+      return Pair.of(firstPartialType, firstPartialResult);
+    }
+    throw new SCMException("No storage type is available for tier "
+        + requestedTier,
         SCMException.ResultCodes.FAILED_TO_FIND_SUITABLE_NODE);
   }
 

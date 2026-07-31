@@ -442,15 +442,21 @@ message ReplicateContainerCommandProto {
 message ReconstructECContainersCommandProto {
   required int64 containerID = 1;
   repeated DatanodeDetailsAndReplicaIndexProto sources = 2;
-  repeated DatanodeDetailsProto targets = 3;
+  repeated DatanodeDetailsProto targets = 3 [deprecated = true];
   required bytes missingContainerIndexes = 4;
   required ECReplicationConfig ecReplicationConfig = 5;
   required int64 cmdId = 6;
+  repeated ECReconstructionTargetProto reconstructionTargets = 1001;
 }
 
 message DatanodeDetailsAndReplicaIndexProto {
     required DatanodeDetailsProto datanodeDetails = 1;
     required int32 replicaIndex = 2;
+}
+
+message ECReconstructionTargetProto {
+    required DatanodeDetailsProto datanodeDetails = 1;
+    optional StorageTypeProto storageType = 2;
 }
 
 /**

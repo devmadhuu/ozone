@@ -51,6 +51,7 @@ import org.apache.hadoop.hdds.scm.node.NodeStatus;
 import org.apache.hadoop.hdds.scm.node.states.NodeNotFoundException;
 import org.apache.hadoop.hdds.scm.pipeline.InsufficientDatanodesException;
 import org.apache.hadoop.ozone.protocol.commands.ReconstructECContainersCommand;
+import org.apache.hadoop.ozone.protocol.commands.ReconstructECContainersCommand.ECReconstructionTarget;
 import org.apache.hadoop.ozone.protocol.commands.ReplicateContainerCommand;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.slf4j.Logger;
@@ -304,9 +305,14 @@ public class ECUnderReplicationHandler implements UnhealthyReplicationHandler {
           : excludedNodes;
 
       // placement with overloaded nodes excluded
-      // TODO StoragePolicy replace this StorageType with container actual StorageType
-      final List<DatanodeDetails> selectedDatanodes = getTargetDatanodes(
-          container, expectedTargetCount, usedNodes, excludedOrOverloadedNodes, StorageType.DEFAULT);
+      Pair<StorageType, List<DatanodeDetails>> selectedTargets =
+          ReplicationManagerUtil.getTargetDatanodesWithFallback(
+              containerPlacement, expectedTargetCount, usedNodes,
+              excludedOrOverloadedNodes, currentContainerSize, container,
+              container.getStorageTier());
+      final StorageType targetStorageType = selectedTargets.getLeft();
+      final List<DatanodeDetails> selectedDatanodes =
+          selectedTargets.getRight();
       final int targetCount = selectedDatanodes.size();
 
       if (hasOverloaded &&
@@ -316,9 +322,9 @@ public class ECUnderReplicationHandler implements UnhealthyReplicationHandler {
           !recoveryIsCritical) {
 
         // check if placement exists when overloaded nodes are not excluded
-        // TODO StoragePolicy replace this StorageType with container actual StorageType
         final List<DatanodeDetails> targetsMaybeOverloaded = getTargetDatanodes(
-            container, expectedTargetCount, usedNodes, excludedNodes, StorageType.DEFAULT);
+            container, expectedTargetCount, usedNodes, excludedNodes,
+            targetStorageType);
 
         if (targetsMaybeOverloaded.size() == expectedTargetCount) {
           final int overloadedCount = expectedTargetCount - targetCount;
@@ -367,7 +373,10 @@ public class ECUnderReplicationHandler implements UnhealthyReplicationHandler {
 
         final ReconstructECContainersCommand reconstructionCommand =
             new ReconstructECContainersCommand(container.getContainerID(),
-                sourceDatanodesWithIndex, selectedDatanodes,
+                sourceDatanodesWithIndex, selectedDatanodes.stream()
+                    .map(dn -> new ECReconstructionTarget(
+                        dn, targetStorageType))
+                    .collect(Collectors.toList()),
                 integers2ByteString(missingIndexes),
                 repConfig);
         // This can throw a CommandTargetOverloadedException, but there is no

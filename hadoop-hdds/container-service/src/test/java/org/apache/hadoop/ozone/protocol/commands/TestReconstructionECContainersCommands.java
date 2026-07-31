@@ -28,10 +28,12 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.MockDatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos;
+import org.apache.hadoop.ozone.protocol.commands.ReconstructECContainersCommand.ECReconstructionTarget;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -64,7 +66,11 @@ public class TestReconstructionECContainersCommands {
           a -> new ReconstructECContainersCommand
               .DatanodeDetailsAndReplicaIndex(a, dnDetails.indexOf(a)))
         .collect(Collectors.toList());
-    List<DatanodeDetails> targets = getDNDetails(2);
+    List<ECReconstructionTarget> targets = Arrays.asList(
+        new ECReconstructionTarget(
+            MockDatanodeDetails.randomDatanodeDetails(), StorageType.SSD),
+        new ECReconstructionTarget(
+            MockDatanodeDetails.randomDatanodeDetails(), StorageType.ARCHIVE));
     ReconstructECContainersCommand reconstructECContainersCommand =
         new ReconstructECContainersCommand(1L, sources, targets,
             missingContainerIndexes, ecReplicationConfig);
@@ -84,7 +90,12 @@ public class TestReconstructionECContainersCommands {
         .collect(Collectors.toList());
     assertEquals(1L, proto.getContainerID());
     assertEquals(sources, srcDnsFromProto);
-    assertEquals(targets, targetDnsFromProto);
+    assertEquals(targets.stream()
+        .map(ECReconstructionTarget::getDatanodeDetails)
+        .collect(Collectors.toList()), targetDnsFromProto);
+    assertEquals(targets, proto.getReconstructionTargetsList().stream()
+        .map(ECReconstructionTarget::fromProto)
+        .collect(Collectors.toList()));
     assertEquals(missingContainerIndexes, proto.getMissingContainerIndexes());
     assertEquals(ecReplicationConfig,
         new ECReplicationConfig(proto.getEcReplicationConfig()));
@@ -98,11 +109,32 @@ public class TestReconstructionECContainersCommands {
         fromProtobuf.getSources());
     assertEquals(reconstructECContainersCommand.getTargetDatanodes(),
         fromProtobuf.getTargetDatanodes());
+    assertEquals(reconstructECContainersCommand.getReconstructionTargets(),
+        fromProtobuf.getReconstructionTargets());
     assertEquals(reconstructECContainersCommand.getMissingContainerIndexes(),
         fromProtobuf.getMissingContainerIndexes());
     assertEquals(
         reconstructECContainersCommand.getEcReplicationConfig(),
         fromProtobuf.getEcReplicationConfig());
+  }
+
+  @Test
+  public void readsLegacyTargetsWithoutStorageType() {
+    List<DatanodeDetails> targets = getDNDetails(2);
+    ReconstructECContainersCommand command =
+        new ReconstructECContainersCommand(1L, Collections.emptyList(),
+            targets, ByteString.copyFrom(new byte[]{1, 2}),
+            new ECReplicationConfig(3, 2));
+    StorageContainerDatanodeProtocolProtos.ReconstructECContainersCommandProto
+        legacyProto = command.getProto().toBuilder()
+        .clearReconstructionTargets().build();
+
+    ReconstructECContainersCommand converted =
+        ReconstructECContainersCommand.getFromProtobuf(legacyProto);
+
+    assertEquals(targets, converted.getTargetDatanodes());
+    assertThat(converted.getReconstructionTargets())
+        .allMatch(target -> target.getStorageType() == null);
   }
 
   private List<DatanodeDetails> getDNDetails(int numDns) {

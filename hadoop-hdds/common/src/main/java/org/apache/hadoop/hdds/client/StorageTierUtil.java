@@ -66,6 +66,24 @@ public final class StorageTierUtil {
     return storageTier.getUniformStorageType();
   }
 
+  public static boolean shouldFallBack(StorageTier storageTier,
+      SCMException exception) {
+    if (storageTier == null || storageTier.getFallbackStorageTypes().isEmpty()) {
+      return false;
+    }
+    SCMException.ResultCodes result = exception.getResult();
+    return result == SCMException.ResultCodes.FAILED_TO_FIND_NODES_WITH_SPACE
+        || result == SCMException.ResultCodes.FAILED_TO_FIND_SUITABLE_NODE;
+  }
+
+  public static List<StorageType> getAvailableStorageTypeOrdered(
+      StorageTier storageTier) {
+    List<StorageType> storageTypes = new ArrayList<>();
+    storageTypes.add(getStorageTypeForUniformStorageTier(storageTier));
+    storageTypes.addAll(storageTier.getFallbackStorageTypes());
+    return storageTypes;
+  }
+
   public static List<StorageTier> findSupportedStorageTiers(
       List<Set<StorageType>> dnStorageTypes) {
     List<StorageTier> supportedStorageTiers = new ArrayList<>();

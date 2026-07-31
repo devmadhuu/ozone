@@ -27,26 +27,30 @@ import org.apache.hadoop.hdds.protocol.proto.HddsProtos.StorageTierProto;
  * Ozone specific storage tiers.
  */
 public enum StorageTier {
-  SSD("SSD", StorageType.SSD),
-  DISK("DISK", StorageType.DISK),
-  ARCHIVE("ARCHIVE", StorageType.ARCHIVE),
+  SSD("SSD", Arrays.asList(StorageType.DISK, StorageType.ARCHIVE), StorageType.SSD),
+  DISK("DISK", Collections.singletonList(StorageType.ARCHIVE), StorageType.DISK),
+  ARCHIVE("ARCHIVE", Collections.emptyList(), StorageType.ARCHIVE),
   EMPTY("EMPTY");
 
   private final String tierName;
   private final List<StorageType> storageTypes;
+  private final List<StorageType> fallbackStorageTypes;
   private final boolean isUniform;
   private static StorageTier defaultTier = DISK;
 
   StorageTier(String tierName) {
     this.tierName = tierName;
     this.storageTypes = Collections.emptyList();
+    this.fallbackStorageTypes = Collections.emptyList();
     this.isUniform = true;
   }
 
   // Constructor for uniform storage tiers
-  StorageTier(String tierName, StorageType uniformStorageType) {
+  StorageTier(String tierName, List<StorageType> fallbackStorageTypes,
+      StorageType uniformStorageType) {
     this.tierName = tierName;
     this.storageTypes = Collections.singletonList(uniformStorageType);
+    this.fallbackStorageTypes = fallbackStorageTypes;
     this.isUniform = true;
   }
 
@@ -61,6 +65,7 @@ public enum StorageTier {
           " StorageType were provided.");
     }
     this.storageTypes = Arrays.asList(storageTypes);
+    this.fallbackStorageTypes = Collections.emptyList();
     this.isUniform = false;
   }
 
@@ -116,6 +121,13 @@ public enum StorageTier {
       throw new IllegalArgumentException("Uniform storage type is not supported");
     }
     return storageTypes.get(0);
+  }
+
+  /**
+   * Returns the storage types allowed as fallbacks for this tier, in order.
+   */
+  public List<StorageType> getFallbackStorageTypes() {
+    return fallbackStorageTypes;
   }
 
   /**

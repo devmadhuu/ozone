@@ -72,6 +72,7 @@ import org.apache.hadoop.ozone.client.io.ECBlockReconstructedStripeInputStream;
 import org.apache.hadoop.ozone.container.common.helpers.BlockData;
 import org.apache.hadoop.ozone.container.common.helpers.TokenHelper;
 import org.apache.hadoop.ozone.container.common.statemachine.StateContext;
+import org.apache.hadoop.ozone.protocol.commands.ReconstructECContainersCommand.ECReconstructionTarget;
 import org.apache.hadoop.security.token.Token;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.slf4j.Logger;
@@ -145,7 +146,7 @@ public class ECReconstructionCoordinator implements Closeable {
   public void reconstructECContainerGroup(long containerID,
       ECReplicationConfig repConfig,
       SortedMap<Integer, DatanodeDetails> sourceNodeMap,
-      SortedMap<Integer, DatanodeDetails> targetNodeMap) throws IOException {
+      SortedMap<Integer, ?> targetNodeMap) throws IOException {
 
     Pipeline pipeline = rebuildInputPipeline(repConfig, sourceNodeMap);
 
@@ -160,15 +161,16 @@ public class ECReconstructionCoordinator implements Closeable {
     String containerToken = encode(tokenHelper.getContainerToken(cid));
     List<DatanodeDetails> recoveringContainersCreatedDNs = new ArrayList<>();
     try {
-      for (Map.Entry<Integer, DatanodeDetails> indexDnPair : targetNodeMap
+      for (Map.Entry<Integer, ?> indexDnPair : targetNodeMap
           .entrySet()) {
-        DatanodeDetails dn = indexDnPair.getValue();
+        DatanodeDetails dn = getDatanodeDetails(indexDnPair.getValue());
+        StorageType storageType = getStorageType(indexDnPair.getValue());
         int index = indexDnPair.getKey();
-        LOG.debug("Creating container {} on datanode {} for index {}",
-            containerID, dn, index);
+        LOG.debug("Creating container {} on storage type {} at datanode {} "
+                + "for index {}", containerID, storageType, dn, index);
         containerOperationClient
             .createRecoveringContainer(containerID, dn, repConfig,
-                containerToken, index);
+                containerToken, index, storageType);
         recoveringContainersCreatedDNs.add(dn);
       }
 
@@ -240,7 +242,7 @@ public class ECReconstructionCoordinator implements Closeable {
   @VisibleForTesting
   public void reconstructECBlockGroup(BlockLocationInfo blockLocationInfo,
       ECReplicationConfig repConfig,
-      SortedMap<Integer, DatanodeDetails> targetMap, BlockData[] blockDataGroup)
+      SortedMap<Integer, ?> targetMap, BlockData[] blockDataGroup)
       throws IOException {
     long safeBlockGroupLength = blockLocationInfo.getLength();
     List<Integer> missingContainerIndexes = new ArrayList<>(targetMap.keySet());
@@ -279,9 +281,10 @@ public class ECReconstructionCoordinator implements Closeable {
         // Create streams and buffers for all indexes that need reconstructed
         for (int i = 0; i < toReconstructIndexes.size(); i++) {
           int replicaIndex = toReconstructIndexes.get(i);
-          DatanodeDetails datanodeDetails = targetMap.get(replicaIndex);
+          Object target = targetMap.get(replicaIndex);
+          DatanodeDetails datanodeDetails = getDatanodeDetails(target);
           targetBlockStreams[i] = getECBlockOutputStream(blockLocationInfo,
-              datanodeDetails, repConfig, replicaIndex, StorageType.DEFAULT);
+              datanodeDetails, repConfig, replicaIndex, getStorageType(target));
           bufs[i] = byteBufferPool.getBuffer(false, repConfig.getEcChunkSize());
           bufs[i].clear();
         }
@@ -289,9 +292,10 @@ public class ECReconstructionCoordinator implements Closeable {
         // write the empty block data to.
         for (int i = 0; i < notReconstructIndexes.size(); i++) {
           int replicaIndex = notReconstructIndexes.get(i);
-          DatanodeDetails datanodeDetails = targetMap.get(replicaIndex);
+          Object target = targetMap.get(replicaIndex);
+          DatanodeDetails datanodeDetails = getDatanodeDetails(target);
           emptyBlockStreams[i] = getECBlockOutputStream(blockLocationInfo,
-              datanodeDetails, repConfig, replicaIndex, StorageType.DEFAULT);
+              datanodeDetails, repConfig, replicaIndex, getStorageType(target));
         }
 
         if (!toReconstructIndexes.isEmpty()) {
@@ -343,6 +347,20 @@ public class ECReconstructionCoordinator implements Closeable {
         IOUtils.cleanupWithLogger(LOG, emptyBlockStreams);
       }
     }
+  }
+
+  private static DatanodeDetails getDatanodeDetails(Object target) {
+    if (target instanceof ECReconstructionTarget) {
+      return ((ECReconstructionTarget) target).getDatanodeDetails();
+    }
+    return (DatanodeDetails) target;
+  }
+
+  private static StorageType getStorageType(Object target) {
+    if (target instanceof ECReconstructionTarget) {
+      return ((ECReconstructionTarget) target).getStorageType();
+    }
+    return null;
   }
 
   private void logBlockGroupDetails(BlockLocationInfo blockLocationInfo,

@@ -27,10 +27,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.anyList;
+import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -38,17 +43,22 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.commons.lang3.tuple.Pair;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
+import org.apache.hadoop.hdds.client.StorageTier;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.DatanodeID;
 import org.apache.hadoop.hdds.protocol.MockDatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ContainerReplicaProto;
+import org.apache.hadoop.hdds.scm.PlacementPolicy;
 import org.apache.hadoop.hdds.scm.container.ContainerID;
 import org.apache.hadoop.hdds.scm.container.ContainerInfo;
 import org.apache.hadoop.hdds.scm.container.ContainerReplica;
 import org.apache.hadoop.hdds.scm.container.placement.metrics.SCMNodeMetric;
 import org.apache.hadoop.hdds.scm.container.replication.ReplicationManager.ReplicationManagerConfiguration;
+import org.apache.hadoop.hdds.scm.exceptions.SCMException;
 import org.apache.hadoop.hdds.scm.node.NodeManager;
 import org.apache.hadoop.hdds.scm.node.NodeStatus;
 import org.apache.hadoop.hdds.scm.node.states.NodeNotFoundException;
@@ -68,6 +78,37 @@ public class TestReplicationManagerUtil {
     replicationManager = mock(ReplicationManager.class);
     ContainerReplicaPendingOps pendingOpsMock = mock(ContainerReplicaPendingOps.class);
     when(replicationManager.getContainerReplicaPendingOps()).thenReturn(pendingOpsMock);
+  }
+
+  @Test
+  public void testGetTargetDatanodesFallsBackByStorageTier()
+      throws IOException {
+    PlacementPolicy policy = mock(PlacementPolicy.class);
+    List<DatanodeDetails> targets =
+        java.util.Collections.singletonList(
+            MockDatanodeDetails.randomDatanodeDetails());
+    when(policy.chooseDatanodes(anyList(), anyList(), isNull(), anyInt(),
+        anyLong(), anyLong(), any(StorageType.class)))
+        .thenAnswer(invocation -> {
+          StorageType storageType = invocation.getArgument(6);
+          if (storageType == StorageType.SSD) {
+            throw new SCMException("No SSD target",
+                SCMException.ResultCodes.FAILED_TO_FIND_SUITABLE_NODE);
+          }
+          return targets;
+        });
+    ContainerInfo container = createContainer(HddsProtos.LifeCycleState.CLOSED,
+        RatisReplicationConfig.getInstance(
+            HddsProtos.ReplicationFactor.THREE));
+    container.setStorageTier(StorageTier.SSD);
+
+    Pair<StorageType, List<DatanodeDetails>> result =
+        ReplicationManagerUtil.getTargetDatanodesWithFallback(policy, 1,
+            new ArrayList<>(), new ArrayList<>(), 1, container,
+            container.getStorageTier());
+
+    assertEquals(StorageType.DISK, result.getLeft());
+    assertEquals(targets, result.getRight());
   }
 
   @Test
