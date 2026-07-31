@@ -21,6 +21,7 @@ import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CHUNK_SIZE_DEFA
 import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CHUNK_SIZE_KEY;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -29,12 +30,16 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.hadoop.conf.StorageUnit;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
+import org.apache.hadoop.hdds.client.OzoneStoragePolicy;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
+import org.apache.hadoop.hdds.client.StoragePolicy;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.client.OzoneBucket;
@@ -61,6 +66,10 @@ public class PutKeyHandler extends KeyHandler {
 
   @Option(names = "--stream")
   private boolean stream;
+
+  @Option(names = {"--storagepolicy", "-sp"},
+      description = "Key StoragePolicy. Allowed values: HOT, WARM, COLD, or null.")
+  private String storagePolicyStr;
 
   @Mixin
   private ShellReplicationOptions replication;
@@ -100,33 +109,38 @@ public class PutKeyHandler extends KeyHandler {
 
     int chunkSize = (int) getConf().getStorageSize(OZONE_SCM_CHUNK_SIZE_KEY,
         OZONE_SCM_CHUNK_SIZE_DEFAULT, StorageUnit.BYTES);
+    StoragePolicy storagePolicy = parseStoragePolicy(storagePolicyStr);
 
     if (stream) {
       stream(dataFile, bucket, keyName, keyMetadata,
-          replicationConfig, chunkSize);
+          replicationConfig, chunkSize, storagePolicy);
     } else {
       async(dataFile, bucket, keyName, keyMetadata,
-          replicationConfig, chunkSize);
+          replicationConfig, chunkSize, storagePolicy);
     }
   }
 
   private void async(
       File dataFile, OzoneBucket bucket,
       String keyName, Map<String, String> keyMetadata,
-      ReplicationConfig replicationConfig, int chunkSize)
+      ReplicationConfig replicationConfig, int chunkSize,
+      StoragePolicy storagePolicy)
       throws IOException {
     if (isVerbose()) {
       out().println("API: async");
     }
     try (InputStream input = Files.newInputStream(dataFile.toPath());
-         OutputStream output = createOrReplaceKey(bucket, keyName, dataFile.length(), keyMetadata, replicationConfig)) {
+         OutputStream output = createOrReplaceKey(bucket, keyName,
+             dataFile.length(), keyMetadata, replicationConfig,
+             storagePolicy)) {
       IOUtils.copyBytes(input, output, chunkSize);
     }
   }
 
-  private OzoneOutputStream createOrReplaceKey(OzoneBucket bucket, String keyName,
-      long size, Map<String, String> keyMetadata, ReplicationConfig replicationConfig
-  ) throws IOException {
+  private OzoneOutputStream createOrReplaceKey(OzoneBucket bucket,
+      String keyName, long size, Map<String, String> keyMetadata,
+      ReplicationConfig replicationConfig, StoragePolicy storagePolicy)
+      throws IOException {
     if (expectedGeneration != null) {
       final long existingGeneration = expectedGeneration;
       Preconditions.checkArgument(existingGeneration > 0,
@@ -134,13 +148,15 @@ public class PutKeyHandler extends KeyHandler {
       return bucket.rewriteKey(keyName, size, existingGeneration, replicationConfig, keyMetadata);
     }
 
-    return bucket.createKey(keyName, size, replicationConfig, keyMetadata);
+    return bucket.createKey(keyName, size, replicationConfig, keyMetadata,
+        Collections.emptyMap(), storagePolicy);
   }
 
   private void stream(
       File dataFile, OzoneBucket bucket,
       String keyName, Map<String, String> keyMetadata,
-      ReplicationConfig replicationConfig, int chunkSize)
+      ReplicationConfig replicationConfig, int chunkSize,
+      StoragePolicy storagePolicy)
       throws IOException {
     if (isVerbose()) {
       out().println("API: streaming");
@@ -155,7 +171,8 @@ public class PutKeyHandler extends KeyHandler {
 
     try (RandomAccessFile raf = new RandomAccessFile(dataFile, "r");
          OzoneDataStreamOutput out = bucket.createStreamKey(keyName,
-             dataFile.length(), replicationConfig, keyMetadata)) {
+             dataFile.length(), replicationConfig, keyMetadata,
+             Collections.emptyMap(), storagePolicy)) {
       FileChannel ch = raf.getChannel();
       long len = raf.length();
       long off = 0;
@@ -166,6 +183,18 @@ public class PutKeyHandler extends KeyHandler {
         off += writeLen;
         len -= writeLen;
       }
+    }
+  }
+
+  private static StoragePolicy parseStoragePolicy(String value) {
+    if (Strings.isNullOrEmpty(value) || "null".equalsIgnoreCase(value)) {
+      return null;
+    }
+    try {
+      return OzoneStoragePolicy.valueOf(value.toUpperCase(Locale.ROOT));
+    } catch (IllegalArgumentException e) {
+      throw new IllegalArgumentException("Invalid storage policy: " + value
+          + ". Allowed String values are: HOT, WARM, COLD, or null.");
     }
   }
 }
