@@ -406,6 +406,17 @@ public interface ClientProtocol {
   }
 
   /**
+   * Atomically rewrites an existing key with the requested tags and
+   * StoragePolicy.
+   */
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  OzoneOutputStream rewriteKey(String volumeName, String bucketName,
+      String keyName, long size, long existingKeyGeneration,
+      ReplicationConfig replicationConfig, Map<String, String> metadata,
+      Map<String, String> tags, StoragePolicy storagePolicy)
+      throws IOException;
+
+  /**
    * Atomically rewrites an existing key with the requested modification time
    * and StoragePolicy.
    */
@@ -417,6 +428,17 @@ public interface ClientProtocol {
     return rewriteKey(volumeName, bucketName, keyName, size,
         existingKeyGeneration, replicationConfig, metadata, storagePolicy);
   }
+
+  /**
+   * Atomically rewrites an existing key with the requested tags, modification
+   * time, and StoragePolicy.
+   */
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  OzoneOutputStream rewriteKey(String volumeName, String bucketName,
+      String keyName, long size, long existingKeyGeneration,
+      ReplicationConfig replicationConfig, Map<String, String> metadata,
+      Map<String, String> tags, long modificationTime,
+      StoragePolicy storagePolicy) throws IOException;
 
   /**
    * Creates a key only if it does not exist (S3 If-None-Match: * semantics).

@@ -1352,6 +1352,30 @@ abstract class OzoneRpcClientTests extends OzoneTestBase {
 
   @ParameterizedTest
   @EnumSource
+  void rewriteKeyWithTags(BucketLayout layout) throws IOException {
+    checkFeatureEnable(OzoneManagerVersion.ATOMIC_REWRITE_KEY);
+    OzoneBucket bucket = createBucket(layout);
+    OzoneKeyDetails keyDetails = createTestKey(bucket);
+    byte[] newContent = "rewrite with tags".getBytes(UTF_8);
+    Map<String, String> tags = new HashMap<>();
+    tags.put("tag-key1", "tag-value1");
+    tags.put("tag-key2", "tag-value2");
+
+    try (OzoneOutputStream out = bucket.rewriteKey(keyDetails.getName(),
+        newContent.length, keyDetails.getGeneration(),
+        RatisReplicationConfig.getInstance(
+            HddsProtos.ReplicationFactor.ONE),
+        keyDetails.getMetadata(), tags, null)) {
+      out.write(newContent);
+    }
+
+    OzoneKeyDetails rewritten =
+        assertKeyContent(bucket, keyDetails.getName(), newContent);
+    assertThat(rewritten.getTags()).containsExactlyInAnyOrderEntriesOf(tags);
+  }
+
+  @ParameterizedTest
+  @EnumSource
   void overwriteAfterRewrite(BucketLayout layout) throws IOException {
     checkFeatureEnable(OzoneManagerVersion.ATOMIC_REWRITE_KEY);
     OzoneBucket bucket = createBucket(layout);

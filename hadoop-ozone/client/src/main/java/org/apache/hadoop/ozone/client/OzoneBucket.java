@@ -571,7 +571,7 @@ public class OzoneBucket extends WithMetadata {
   public OzoneOutputStream rewriteKey(String keyName, long size, long existingKeyGeneration,
       ReplicationConfig replicationConfig, Map<String, String> metadata) throws IOException {
     return rewriteKey(keyName, size, existingKeyGeneration,
-        replicationConfig, metadata, null);
+        replicationConfig, metadata, Collections.emptyMap(), null);
   }
 
   /**
@@ -590,8 +590,33 @@ public class OzoneBucket extends WithMetadata {
       long existingKeyGeneration, ReplicationConfig replicationConfig,
       Map<String, String> metadata, StoragePolicy keyStoragePolicy)
       throws IOException {
+    return rewriteKey(keyName, size, existingKeyGeneration,
+        replicationConfig, metadata, Collections.emptyMap(),
+        keyStoragePolicy);
+  }
+
+  /**
+   * Atomically rewrites an existing key with the requested tags and
+   * StoragePolicy.
+   *
+   * @param keyName Existing key to rewrite
+   * @param size Size of the new key
+   * @param existingKeyGeneration Generation checked at open and commit time
+   * @param replicationConfig Replication configuration for the rewritten key
+   * @param metadata Custom key metadata
+   * @param tags Custom key tags
+   * @param keyStoragePolicy StoragePolicy for the rewritten key
+   * @return OzoneOutputStream to which the data has to be written
+   * @throws IOException on error
+   */
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  public OzoneOutputStream rewriteKey(String keyName, long size,
+      long existingKeyGeneration, ReplicationConfig replicationConfig,
+      Map<String, String> metadata, Map<String, String> tags,
+      StoragePolicy keyStoragePolicy) throws IOException {
     return proxy.rewriteKey(volumeName, name, keyName, size,
-        existingKeyGeneration, replicationConfig, metadata, keyStoragePolicy);
+        existingKeyGeneration, replicationConfig, metadata, tags,
+        keyStoragePolicy);
   }
 
   /**
@@ -623,8 +648,23 @@ public class OzoneBucket extends WithMetadata {
       long existingKeyGeneration, ReplicationConfig replicationConfig,
       Map<String, String> metadata, long requestedModificationTime,
       StoragePolicy keyStoragePolicy) throws IOException {
+    return rewriteKey(keyName, size, existingKeyGeneration,
+        replicationConfig, metadata, Collections.emptyMap(),
+        requestedModificationTime, keyStoragePolicy);
+  }
+
+  /**
+   * Atomically rewrites an existing key with the requested tags, modification
+   * time, and StoragePolicy.
+   */
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  public OzoneOutputStream rewriteKey(String keyName, long size,
+      long existingKeyGeneration, ReplicationConfig replicationConfig,
+      Map<String, String> metadata, Map<String, String> tags,
+      long requestedModificationTime, StoragePolicy keyStoragePolicy)
+      throws IOException {
     return proxy.rewriteKey(volumeName, name, keyName, size,
-        existingKeyGeneration, replicationConfig, metadata,
+        existingKeyGeneration, replicationConfig, metadata, tags,
         requestedModificationTime, keyStoragePolicy);
   }
 

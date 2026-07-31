@@ -186,7 +186,16 @@ public final class OzoneBucketStub extends OzoneBucket {
       long existingKeyGeneration, ReplicationConfig rConfig,
       Map<String, String> metadata, StoragePolicy storagePolicy)
       throws IOException {
-    return rewriteKeyInternal(keyName, size, rConfig, metadata, null,
+    return rewriteKeyInternal(keyName, size, rConfig, metadata,
+        Collections.emptyMap(), null, storagePolicy);
+  }
+
+  @Override
+  public OzoneOutputStream rewriteKey(String keyName, long size,
+      long existingKeyGeneration, ReplicationConfig rConfig,
+      Map<String, String> metadata, Map<String, String> tags,
+      StoragePolicy storagePolicy) throws IOException {
+    return rewriteKeyInternal(keyName, size, rConfig, metadata, tags, null,
         storagePolicy);
   }
 
@@ -196,13 +205,23 @@ public final class OzoneBucketStub extends OzoneBucket {
       Map<String, String> metadata, long modificationTime,
       StoragePolicy storagePolicy) throws IOException {
     return rewriteKeyInternal(keyName, size, rConfig, metadata,
+        Collections.emptyMap(), modificationTime, storagePolicy);
+  }
+
+  @Override
+  public OzoneOutputStream rewriteKey(String keyName, long size,
+      long existingKeyGeneration, ReplicationConfig rConfig,
+      Map<String, String> metadata, Map<String, String> tags,
+      long modificationTime, StoragePolicy storagePolicy)
+      throws IOException {
+    return rewriteKeyInternal(keyName, size, rConfig, metadata, tags,
         modificationTime, storagePolicy);
   }
 
   private OzoneOutputStream rewriteKeyInternal(String keyName, long size,
       ReplicationConfig rConfig, Map<String, String> metadata,
-      Long modificationTime, StoragePolicy storagePolicy)
-      throws IOException {
+      Map<String, String> tags, Long modificationTime,
+      StoragePolicy storagePolicy) throws IOException {
     final ReplicationConfig repConfig;
     if (rConfig == null) {
       repConfig = getReplicationConfig();
@@ -224,7 +243,7 @@ public final class OzoneBucketStub extends OzoneBucket {
                 modificationTime != null
                     ? modificationTime : System.currentTimeMillis(),
                 new ArrayList<>(), finalReplicationCon, metadata, null,
-                () -> readKey(keyName), true, null, null, storagePolicy
+                () -> readKey(keyName), true, null, tags, storagePolicy
             ));
             super.close();
           }

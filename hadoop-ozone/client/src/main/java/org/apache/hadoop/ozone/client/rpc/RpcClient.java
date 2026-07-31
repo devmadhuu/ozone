@@ -1453,7 +1453,19 @@ public class RpcClient implements ClientProtocol {
       ReplicationConfig replicationConfig, Map<String, String> metadata,
       StoragePolicy storagePolicy) throws IOException {
     return rewriteKeyInternal(volumeName, bucketName, keyName, size,
-        existingKeyGeneration, replicationConfig, metadata, null,
+        existingKeyGeneration, replicationConfig, metadata,
+        Collections.emptyMap(), null, storagePolicy);
+  }
+
+  @Override
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  public OzoneOutputStream rewriteKey(String volumeName, String bucketName,
+      String keyName, long size, long existingKeyGeneration,
+      ReplicationConfig replicationConfig, Map<String, String> metadata,
+      Map<String, String> tags, StoragePolicy storagePolicy)
+      throws IOException {
+    return rewriteKeyInternal(volumeName, bucketName, keyName, size,
+        existingKeyGeneration, replicationConfig, metadata, tags, null,
         storagePolicy);
   }
 
@@ -1464,16 +1476,28 @@ public class RpcClient implements ClientProtocol {
       ReplicationConfig replicationConfig, Map<String, String> metadata,
       long modificationTime, StoragePolicy storagePolicy) throws IOException {
     return rewriteKeyInternal(volumeName, bucketName, keyName, size,
-        existingKeyGeneration, replicationConfig, metadata, modificationTime,
-        storagePolicy);
+        existingKeyGeneration, replicationConfig, metadata,
+        Collections.emptyMap(), modificationTime, storagePolicy);
+  }
+
+  @Override
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  public OzoneOutputStream rewriteKey(String volumeName, String bucketName,
+      String keyName, long size, long existingKeyGeneration,
+      ReplicationConfig replicationConfig, Map<String, String> metadata,
+      Map<String, String> tags, long modificationTime,
+      StoragePolicy storagePolicy) throws IOException {
+    return rewriteKeyInternal(volumeName, bucketName, keyName, size,
+        existingKeyGeneration, replicationConfig, metadata, tags,
+        modificationTime, storagePolicy);
   }
 
   @SuppressWarnings("checkstyle:ParameterNumber")
   private OzoneOutputStream rewriteKeyInternal(String volumeName,
       String bucketName, String keyName, long size,
       long existingKeyGeneration, ReplicationConfig replicationConfig,
-      Map<String, String> metadata, Long modificationTime,
-      StoragePolicy storagePolicy) throws IOException {
+      Map<String, String> metadata, Map<String, String> tags,
+      Long modificationTime, StoragePolicy storagePolicy) throws IOException {
     if (omVersion.compareTo(OzoneManagerVersion.ATOMIC_REWRITE_KEY) < 0) {
       throw new IOException("OzoneManager does not support atomic key rewrite.");
     }
@@ -1482,7 +1506,7 @@ public class RpcClient implements ClientProtocol {
         existingKeyGeneration);
     OmKeyArgs.Builder builder = createWriteKeyArgsBuilder(volumeName,
         bucketName, keyName, size, replicationConfig, metadata,
-        Collections.emptyMap());
+        tags == null ? Collections.emptyMap() : tags);
     if (storagePolicy != null) {
       builder.setStoragePolicy(storagePolicy);
     }
