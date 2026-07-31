@@ -32,11 +32,18 @@ public class OpenKeySession {
   // a block that has a create version equals to open version means it will
   // be committed only when this open session is closed.
   private long openVersion;
+  private final Long modificationTime;
 
   public OpenKeySession(long id, OmKeyInfo info, long version) {
+    this(id, info, version, null);
+  }
+
+  public OpenKeySession(long id, OmKeyInfo info, long version,
+      Long modificationTime) {
     this.id = id;
     this.keyInfo = info;
     this.openVersion = version;
+    this.modificationTime = modificationTime;
   }
 
   public long getOpenVersion() {
@@ -49,5 +56,9 @@ public class OpenKeySession {
 
   public long getId() {
     return id;
+  }
+
+  public Long getModificationTime() {
+    return modificationTime;
   }
 }

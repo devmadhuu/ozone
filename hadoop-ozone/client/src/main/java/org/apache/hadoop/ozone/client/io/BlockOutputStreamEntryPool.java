@@ -106,7 +106,8 @@ public class BlockOutputStreamEntryPool implements KeyMetadataAware {
         .setIsMultipartKey(b.isMultipartKey())
         .setMultipartUploadID(b.getMultipartUploadID())
         .setMultipartUploadPartNumber(b.getMultipartNumber())
-        .setStoragePolicy(info.getStoragePolicy());
+        .setStoragePolicy(info.getStoragePolicy())
+        .setModificationTime(b.getOpenHandler().getModificationTime());
     this.openID = b.getOpenHandler().getId();
     this.excludeList = createExcludeList();
 

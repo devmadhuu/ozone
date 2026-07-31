@@ -595,6 +595,40 @@ public class OzoneBucket extends WithMetadata {
   }
 
   /**
+   * Atomically rewrites an existing key with the requested modification time.
+   *
+   * @param keyName Existing key to rewrite
+   * @param size Size of the new key
+   * @param existingKeyGeneration Generation checked at open and commit time
+   * @param replicationConfig Replication configuration for the rewritten key
+   * @param metadata Custom key metadata
+   * @param requestedModificationTime Modification time for the rewritten key
+   * @return OzoneOutputStream to which the data has to be written
+   * @throws IOException on error
+   */
+  public OzoneOutputStream rewriteKey(String keyName, long size,
+      long existingKeyGeneration, ReplicationConfig replicationConfig,
+      Map<String, String> metadata, long requestedModificationTime)
+      throws IOException {
+    return rewriteKey(keyName, size, existingKeyGeneration,
+        replicationConfig, metadata, requestedModificationTime, null);
+  }
+
+  /**
+   * Atomically rewrites an existing key with the requested modification time
+   * and StoragePolicy.
+   */
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  public OzoneOutputStream rewriteKey(String keyName, long size,
+      long existingKeyGeneration, ReplicationConfig replicationConfig,
+      Map<String, String> metadata, long requestedModificationTime,
+      StoragePolicy keyStoragePolicy) throws IOException {
+    return proxy.rewriteKey(volumeName, name, keyName, size,
+        existingKeyGeneration, replicationConfig, metadata,
+        requestedModificationTime, keyStoragePolicy);
+  }
+
+  /**
    * Creates a key only if it does not exist (S3 If-None-Match: * semantics).
    *
    * @param keyName Name of the key

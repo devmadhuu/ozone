@@ -1328,6 +1328,30 @@ abstract class OzoneRpcClientTests extends OzoneTestBase {
 
   @ParameterizedTest
   @EnumSource
+  void rewriteKeyWithModificationTime(BucketLayout layout)
+      throws IOException {
+    checkFeatureEnable(OzoneManagerVersion.ATOMIC_REWRITE_KEY);
+    OzoneBucket bucket = createBucket(layout);
+    OzoneKeyDetails keyDetails = createTestKey(bucket);
+    byte[] newContent = "rewrite with modification time".getBytes(UTF_8);
+    long modificationTime = 1_700_000_000_000L;
+
+    try (OzoneOutputStream out = bucket.rewriteKey(keyDetails.getName(),
+        newContent.length, keyDetails.getGeneration(),
+        RatisReplicationConfig.getInstance(
+            HddsProtos.ReplicationFactor.ONE),
+        keyDetails.getMetadata(), modificationTime)) {
+      out.write(newContent);
+    }
+
+    OzoneKeyDetails rewritten =
+        assertKeyContent(bucket, keyDetails.getName(), newContent);
+    assertEquals(modificationTime,
+        rewritten.getModificationTime().toEpochMilli());
+  }
+
+  @ParameterizedTest
+  @EnumSource
   void overwriteAfterRewrite(BucketLayout layout) throws IOException {
     checkFeatureEnable(OzoneManagerVersion.ATOMIC_REWRITE_KEY);
     OzoneBucket bucket = createBucket(layout);

@@ -186,6 +186,23 @@ public final class OzoneBucketStub extends OzoneBucket {
       long existingKeyGeneration, ReplicationConfig rConfig,
       Map<String, String> metadata, StoragePolicy storagePolicy)
       throws IOException {
+    return rewriteKeyInternal(keyName, size, rConfig, metadata, null,
+        storagePolicy);
+  }
+
+  @Override
+  public OzoneOutputStream rewriteKey(String keyName, long size,
+      long existingKeyGeneration, ReplicationConfig rConfig,
+      Map<String, String> metadata, long modificationTime,
+      StoragePolicy storagePolicy) throws IOException {
+    return rewriteKeyInternal(keyName, size, rConfig, metadata,
+        modificationTime, storagePolicy);
+  }
+
+  private OzoneOutputStream rewriteKeyInternal(String keyName, long size,
+      ReplicationConfig rConfig, Map<String, String> metadata,
+      Long modificationTime, StoragePolicy storagePolicy)
+      throws IOException {
     final ReplicationConfig repConfig;
     if (rConfig == null) {
       repConfig = getReplicationConfig();
@@ -204,7 +221,8 @@ public final class OzoneBucketStub extends OzoneBucket {
                 keyName,
                 size,
                 System.currentTimeMillis(),
-                System.currentTimeMillis(),
+                modificationTime != null
+                    ? modificationTime : System.currentTimeMillis(),
                 new ArrayList<>(), finalReplicationCon, metadata, null,
                 () -> readKey(keyName), true, null, null, storagePolicy
             ));

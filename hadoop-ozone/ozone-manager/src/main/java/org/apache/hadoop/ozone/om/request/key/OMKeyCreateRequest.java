@@ -179,7 +179,9 @@ public class OMKeyCreateRequest extends OMKeyRequest {
         effectiveDataSize = requestedSize;
       }
 
-      newKeyArgs = keyArgs.toBuilder().setModificationTime(Time.now())
+      long modificationTime = keyArgs.hasModificationTime()
+          ? keyArgs.getModificationTime() : Time.now();
+      newKeyArgs = keyArgs.toBuilder().setModificationTime(modificationTime)
               .setType(type).setFactor(factor)
               .setDataSize(effectiveDataSize)
               .setStoragePolicy(OzoneStoragePolicy.toProto(storagePolicy));
@@ -189,7 +191,9 @@ public class OMKeyCreateRequest extends OMKeyRequest {
               getOmRequest().getVersion()))
           .collect(Collectors.toList()));
     } else {
-      newKeyArgs = keyArgs.toBuilder().setModificationTime(Time.now());
+      newKeyArgs = keyArgs.toBuilder().setModificationTime(
+          keyArgs.hasModificationTime()
+              ? keyArgs.getModificationTime() : Time.now());
     }
 
     newKeyArgs.setKeyName(keyPath);

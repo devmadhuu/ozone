@@ -756,6 +756,9 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
       keyArgs.setStoragePolicy(
           OzoneStoragePolicy.toProto(args.getStoragePolicy()));
     }
+    if (args.getModificationTime() != null) {
+      keyArgs.setModificationTime(args.getModificationTime());
+    }
 
     req.setKeyArgs(keyArgs.build());
 
@@ -766,7 +769,7 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
     CreateKeyResponse keyResponse = handleSubmitRequestAndSCMSafeModeRetry(omRequest).getCreateKeyResponse();
     return new OpenKeySession(keyResponse.getID(),
         OmKeyInfo.getFromProtobuf(keyResponse.getKeyInfo()),
-        keyResponse.getOpenVersion());
+        keyResponse.getOpenVersion(), args.getModificationTime());
   }
 
   private OMResponse handleError(OMResponse resp) throws OMException {
@@ -865,6 +868,9 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
             .collect(Collectors.toList()));
 
     setReplicationConfig(args.getReplicationConfig(), keyArgsBuilder);
+    if (args.getModificationTime() != null) {
+      keyArgsBuilder.setModificationTime(args.getModificationTime());
+    }
 
     req.setKeyArgs(keyArgsBuilder.build());
     req.setClientID(clientId);

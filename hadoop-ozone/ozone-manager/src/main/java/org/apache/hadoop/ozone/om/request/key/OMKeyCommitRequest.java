@@ -122,9 +122,11 @@ public class OMKeyCommitRequest extends OMKeyRequest {
     keyPath = validateAndNormalizeKey(ozoneManager.getEnableFileSystemPaths(),
         keyPath, getBucketLayout());
 
-    KeyArgs.Builder newKeyArgs =
-        keyArgs.toBuilder().setModificationTime(Time.now())
-            .setKeyName(keyPath);
+    long modificationTime = keyArgs.hasModificationTime()
+        ? keyArgs.getModificationTime() : Time.now();
+    KeyArgs.Builder newKeyArgs = keyArgs.toBuilder()
+        .setModificationTime(modificationTime)
+        .setKeyName(keyPath);
 
     KeyArgs resolvedKeyArgs =
         resolveBucketAndCheckOpenKeyAcls(newKeyArgs.build(), ozoneManager,

@@ -66,6 +66,7 @@ public final class OmKeyArgs extends WithMetadata implements Auditable {
   private Long expectedDataGeneration = null;
   private final String expectedETag;
   private final @Nullable StoragePolicy storagePolicy;
+  private final Long modificationTime;
 
   private OmKeyArgs(Builder b) {
     super(b);
@@ -89,6 +90,7 @@ public final class OmKeyArgs extends WithMetadata implements Auditable {
     this.expectedDataGeneration = b.expectedDataGeneration;
     this.expectedETag = b.expectedETag;
     this.storagePolicy = b.storagePolicy;
+    this.modificationTime = b.modificationTime;
   }
 
   public boolean getIsMultipartKey() {
@@ -179,6 +181,10 @@ public final class OmKeyArgs extends WithMetadata implements Auditable {
     return storagePolicy;
   }
 
+  public Long getModificationTime() {
+    return modificationTime;
+  }
+
   @Override
   public Map<String, String> toAuditMap() {
     Map<String, String> auditMap = new LinkedHashMap<>();
@@ -230,6 +236,9 @@ public final class OmKeyArgs extends WithMetadata implements Auditable {
     if (storagePolicy != null) {
       builder.setStoragePolicy(OzoneStoragePolicy.toProto(storagePolicy));
     }
+    if (modificationTime != null) {
+      builder.setModificationTime(modificationTime);
+    }
     return builder.build();
   }
 
@@ -257,6 +266,7 @@ public final class OmKeyArgs extends WithMetadata implements Auditable {
     private Long expectedDataGeneration = null;
     private String expectedETag;
     private @Nullable StoragePolicy storagePolicy;
+    private Long modificationTime;
 
     public Builder() {
       this(AclListBuilder.empty());
@@ -304,6 +314,7 @@ public final class OmKeyArgs extends WithMetadata implements Auditable {
       this.expectedDataGeneration = obj.expectedDataGeneration;
       this.expectedETag = obj.expectedETag;
       this.storagePolicy = obj.storagePolicy;
+      this.modificationTime = obj.modificationTime;
       this.tags = MapBuilder.of(obj.tags);
       this.acls = AclListBuilder.of(obj.acls);
     }
@@ -446,6 +457,11 @@ public final class OmKeyArgs extends WithMetadata implements Auditable {
 
     public Builder setStoragePolicy(@Nullable StoragePolicy storagePolicy) {
       this.storagePolicy = storagePolicy;
+      return this;
+    }
+
+    public Builder setModificationTime(Long modificationTime) {
+      this.modificationTime = modificationTime;
       return this;
     }
 
