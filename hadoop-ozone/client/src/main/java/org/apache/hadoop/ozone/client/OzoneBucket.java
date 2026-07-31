@@ -570,7 +570,28 @@ public class OzoneBucket extends WithMetadata {
    */
   public OzoneOutputStream rewriteKey(String keyName, long size, long existingKeyGeneration,
       ReplicationConfig replicationConfig, Map<String, String> metadata) throws IOException {
-    return proxy.rewriteKey(volumeName, name, keyName, size, existingKeyGeneration, replicationConfig, metadata);
+    return rewriteKey(keyName, size, existingKeyGeneration,
+        replicationConfig, metadata, null);
+  }
+
+  /**
+   * Atomically rewrites an existing key with the requested StoragePolicy.
+   *
+   * @param keyName Existing key to rewrite
+   * @param size Size of the new key
+   * @param existingKeyGeneration Generation checked at open and commit time
+   * @param replicationConfig Replication configuration for the rewritten key
+   * @param metadata Custom key metadata
+   * @param keyStoragePolicy StoragePolicy for the rewritten key
+   * @return OzoneOutputStream to which the data has to be written
+   * @throws IOException on error
+   */
+  public OzoneOutputStream rewriteKey(String keyName, long size,
+      long existingKeyGeneration, ReplicationConfig replicationConfig,
+      Map<String, String> metadata, StoragePolicy keyStoragePolicy)
+      throws IOException {
+    return proxy.rewriteKey(volumeName, name, keyName, size,
+        existingKeyGeneration, replicationConfig, metadata, keyStoragePolicy);
   }
 
   /**

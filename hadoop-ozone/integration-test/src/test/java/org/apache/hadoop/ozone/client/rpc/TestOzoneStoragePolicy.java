@@ -426,6 +426,43 @@ public class TestOzoneStoragePolicy {
     }, 1000, 90000);
   }
 
+  @Test
+  public void testRewriteKeyWithStoragePolicy() throws Exception {
+    ReplicationConfig replicationConfig = ReplicationConfig.fromTypeAndFactor(
+        ReplicationType.RATIS, ReplicationFactor.THREE);
+    List<List<StorageType>> storageTypeList = new ArrayList<>();
+    for (int i = 0; i < replicationConfig.getRequiredNodes(); i++) {
+      storageTypeList.add(Arrays.asList(
+          StorageType.DISK, StorageType.SSD, StorageType.ARCHIVE));
+    }
+    startCluster(conf, storageTypeList,
+        replicationConfig.getRequiredNodes(), 3);
+
+    OzoneBucket bucket = createBucketWithStoragePolicyAndGet(
+        OzoneStoragePolicy.HOT, replicationConfig, BucketLayout.OBJECT_STORE);
+    OmKeyInfo original = createKeyWithStoragePolicyAndGet(
+        bucket, OzoneStoragePolicy.HOT, replicationConfig);
+    byte[] rewrittenValue = "rewritten-value".getBytes(UTF_8);
+    try (OzoneOutputStream out = bucket.rewriteKey(original.getKeyName(),
+        rewrittenValue.length, original.getGeneration(), replicationConfig,
+        Collections.emptyMap(), OzoneStoragePolicy.COLD)) {
+      out.write(rewrittenValue);
+    }
+
+    OmKeyArgs keyArgs = new OmKeyArgs.Builder()
+        .setVolumeName(original.getVolumeName())
+        .setBucketName(original.getBucketName())
+        .setKeyName(original.getKeyName())
+        .build();
+    OmKeyInfo rewritten = ozoneManager.lookupKey(keyArgs);
+    assertTrue(rewritten.getGeneration() > original.getGeneration());
+    assertKeyInfo(rewritten, 1, OzoneStoragePolicy.COLD, replicationConfig);
+    assertSCMPipelineAndContainer(rewritten,
+        OzoneStoragePolicy.COLD.getCreationTier(), replicationConfig);
+    assertDNContainerAndBlock(rewritten,
+        OzoneStoragePolicy.COLD.getCreationTier(), replicationConfig);
+  }
+
   private void closeAllPipelines(ReplicationConfig replicationConfig) throws Exception {
     StorageContainerManager scm = cluster.getStorageContainerManager();
     scm.getPipelineManager().getPipelines(replicationConfig, Pipeline.PipelineState.OPEN)

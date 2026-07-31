@@ -145,7 +145,8 @@ public class PutKeyHandler extends KeyHandler {
       final long existingGeneration = expectedGeneration;
       Preconditions.checkArgument(existingGeneration > 0,
           "expectedGeneration must be positive, but was %s", existingGeneration);
-      return bucket.rewriteKey(keyName, size, existingGeneration, replicationConfig, keyMetadata);
+      return bucket.rewriteKey(keyName, size, existingGeneration,
+          replicationConfig, keyMetadata, storagePolicy);
     }
 
     return bucket.createKey(keyName, size, replicationConfig, keyMetadata,

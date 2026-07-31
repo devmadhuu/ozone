@@ -383,6 +383,29 @@ public interface ClientProtocol {
        Map<String, String> metadata) throws IOException;
 
   /**
+   * Atomically rewrites an existing key with the requested StoragePolicy.
+   *
+   * @param volumeName Name of the Volume
+   * @param bucketName Name of the Bucket
+   * @param keyName Existing key to rewrite
+   * @param size Size of the new key
+   * @param existingKeyGeneration Generation checked at open and commit time
+   * @param replicationConfig Replication configuration for the rewritten key
+   * @param metadata Custom key metadata
+   * @param storagePolicy StoragePolicy for the rewritten key
+   * @return {@link OzoneOutputStream}
+   * @throws IOException on error
+   */
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  default OzoneOutputStream rewriteKey(String volumeName, String bucketName,
+      String keyName, long size, long existingKeyGeneration,
+      ReplicationConfig replicationConfig, Map<String, String> metadata,
+      StoragePolicy storagePolicy) throws IOException {
+    return rewriteKey(volumeName, bucketName, keyName, size,
+        existingKeyGeneration, replicationConfig, metadata);
+  }
+
+  /**
    * Creates a key only if it does not exist (S3 If-None-Match: * semantics).
    *
    * @param volumeName Name of the Volume

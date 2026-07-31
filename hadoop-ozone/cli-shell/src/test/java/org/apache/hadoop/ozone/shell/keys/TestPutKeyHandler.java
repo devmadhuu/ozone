@@ -105,6 +105,19 @@ public class TestPutKeyHandler {
   }
 
   @Test
+  void passesStoragePolicyToKeyRewrite() throws IOException {
+    Path data = createDataFile();
+    OzoneOutputStream output = mock(OzoneOutputStream.class);
+    when(bucket.rewriteKey(eq("key"), eq(3L), eq(7L), any(), anyMap(),
+        eq(OzoneStoragePolicy.WARM))).thenReturn(output);
+    parse(data, "--expectedGeneration", "7", "--storagepolicy", "WARM");
+
+    command.execute(client, address);
+    verify(bucket).rewriteKey(eq("key"), eq(3L), eq(7L), any(), anyMap(),
+        eq(OzoneStoragePolicy.WARM));
+  }
+
+  @Test
   void rejectsInvalidStoragePolicy() throws IOException {
     Path data = createDataFile();
     parse(data, "--storagepolicy", "invalid");
